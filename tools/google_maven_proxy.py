@@ -205,6 +205,50 @@ class MavenMirrorIndex:
             shutil.copyfileobj(response, handle)
 
     @staticmethod
+    def _parse_lfs_pointer(path: Path) -> tuple[str, int] | None:
+        try:
+            contents = path.read_text(encoding="utf-8")
+        except UnicodeDecodeError:
+            return None
+
+        lines = contents.splitlines()
+        if len(lines) < 3 or lines[0] != "version https://git-lfs.github.com/spec/v1":
+            return None
+
+        oid_prefix = "oid sha256:"
+        size_prefix = "size "
+        oid_line = next((line for line in lines if line.startswith(oid_prefix)), None)
+        size_line = next((line for line in lines if line.startswith(size_prefix)), None)
+        if oid_line is None or size_line is None:
+            return None
+
+        return oid_line.removeprefix(oid_prefix), int(size_line.removeprefix(size_prefix))
+
+    def _download_lfs_object(self, donor: Donor, oid: str, size: int, destination: Path) -> None:
+        payload = json.dumps(
+            {
+                "operation": "download",
+                "transfers": ["basic"],
+                "objects": [{"oid": oid, "size": size}],
+            }
+        ).encode("utf-8")
+        request = Request(
+            f"https://github.com/{donor.owner}/{donor.repo}.git/info/lfs/objects/batch",
+            data=payload,
+            method="POST",
+            headers={
+                "Accept": "application/vnd.git-lfs+json",
+                "Content-Type": "application/vnd.git-lfs+json",
+                "User-Agent": "AndroidSA Google Maven Proxy",
+            },
+        )
+        with urlopen(request, timeout=60) as response:
+            batch_response = json.load(response)
+
+        href = batch_response["objects"][0]["actions"]["download"]["href"]
+        self._download_to_file(href, destination)
+
+    @staticmethod
     def _safe_extractall(archive: tarfile.TarFile, destination: Path) -> None:
         for member in archive.getmembers():
             member_path = destination / member.name
@@ -237,7 +281,12 @@ class MavenMirrorIndex:
         try:
             source_path = self.source_root / donor.cache_key / remote_path
             if source_path.is_file():
-                shutil.copyfile(source_path, temp_path)
+                lfs_pointer = self._parse_lfs_pointer(source_path)
+                if lfs_pointer is None:
+                    shutil.copyfile(source_path, temp_path)
+                else:
+                    oid, size = lfs_pointer
+                    self._download_lfs_object(donor, oid, size, temp_path)
             else:
                 self._download_to_file(donor.file_url(remote_path, binary=binary), temp_path)
             os.replace(temp_path, artifact_path)
