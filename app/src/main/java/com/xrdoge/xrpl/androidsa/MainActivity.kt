@@ -14,13 +14,25 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+
+private val InitialOverview = NativeOverview(
+    clientName = "AndroidSA",
+    transport = "loading",
+    connectionState = "initializing",
+    diagnostics = "Loading native state",
+)
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -35,7 +47,12 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 private fun AndroidSAApp() {
-    var overview by remember { mutableStateOf(NativeBridge.overview()) }
+    var overview by remember { mutableStateOf(InitialOverview) }
+    val scope = rememberCoroutineScope()
+
+    LaunchedEffect(Unit) {
+        overview = withContext(Dispatchers.Default) { NativeBridge.overview() }
+    }
 
     Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
         Column(
@@ -57,7 +74,19 @@ private fun AndroidSAApp() {
             OverviewCard(title = "Transport", value = overview.transport)
             OverviewCard(title = "Connection", value = overview.connectionState)
             OverviewCard(title = "Diagnostics", value = overview.diagnostics)
-            Button(onClick = { overview = NativeBridge.refresh() }) {
+            Button(
+                onClick = {
+                    val currentOverview = overview
+                    scope.launch {
+                        overview = withContext(Dispatchers.Default) {
+                            NativeBridge.refresh() ?: currentOverview.copy(
+                                connectionState = "error",
+                                diagnostics = "Native command was rejected",
+                            )
+                        }
+                    }
+                },
+            ) {
                 Text("Refresh native state")
             }
         }

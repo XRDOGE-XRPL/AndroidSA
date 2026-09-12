@@ -8,7 +8,7 @@ data class NativeOverview(
 )
 
 internal fun parseNativeOverview(summary: String): NativeOverview {
-    val sections = summary.split('|')
+    val sections = summary.split('|', limit = 4)
     return NativeOverview(
         clientName = sections.getOrElse(0) { "AndroidSA" },
         transport = sections.getOrElse(1) { "unavailable" },
@@ -27,8 +27,6 @@ object NativeBridge {
 
     fun overview(): NativeOverview = parseNativeOverview(nativeGetClientSummary())
 
-    fun refresh(command: String = "ping"): NativeOverview {
-        nativeDispatchCommand(command)
-        return overview()
-    }
+    fun refresh(command: String = "ping"): NativeOverview? =
+        if (nativeDispatchCommand(command)) overview() else null
 }

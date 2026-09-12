@@ -19,6 +19,10 @@ Java_com_xrdoge_xrpl_androidsa_NativeBridge_nativeGetClientSummary(JNIEnv* env, 
 
 extern "C" JNIEXPORT jboolean JNICALL
 Java_com_xrdoge_xrpl_androidsa_NativeBridge_nativeDispatchCommand(JNIEnv* env, jobject /* this */, jstring command) {
+    if (command == nullptr) {
+        return false;
+    }
+
     const char* raw = env->GetStringUTFChars(command, nullptr);
     const std::string commandText = raw == nullptr ? std::string() : std::string(raw);
     if (raw != nullptr) {

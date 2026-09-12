@@ -13,4 +13,14 @@ class NativeBridgeTest {
         assertEquals("offline", overview.connectionState)
         assertEquals("No diagnostics available", overview.diagnostics)
     }
+
+    @Test
+    fun parseNativeOverviewPreservesPipesInsideDiagnostics() {
+        val overview = parseNativeOverview("AndroidSA|udp|ready|pipe|inside|diagnostics")
+
+        assertEquals("AndroidSA", overview.clientName)
+        assertEquals("udp", overview.transport)
+        assertEquals("ready", overview.connectionState)
+        assertEquals("pipe|inside|diagnostics", overview.diagnostics)
+    }
 }
