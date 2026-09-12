@@ -15,6 +15,16 @@ internal fun requireValidNativeCommand(command: String): String {
     require(sanitized.length <= MaxNativeCommandLength) {
         "Command must be at most $MaxNativeCommandLength characters"
     }
+
+    val normalized = sanitized.lowercase()
+    if (normalized.startsWith("transport")) {
+        val separatorIndex = normalized.indexOf(':')
+        require(separatorIndex != -1) { "Transport command must include ':' separator" }
+        val keywordTail = normalized.substring("transport".length, separatorIndex)
+        require(keywordTail.isEmpty()) { "Transport command keyword is invalid" }
+        val transportValue = sanitized.substring(separatorIndex + 1).trim()
+        require(transportValue.isNotEmpty()) { "Transport command value must not be blank" }
+    }
     return sanitized
 }
 

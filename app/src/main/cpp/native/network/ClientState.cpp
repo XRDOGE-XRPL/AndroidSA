@@ -45,6 +45,7 @@ bool ClientState::dispatchCommand(const std::string& command) {
     }
 
     const auto normalized = lower(sanitized);
+    const auto transportSeparator = normalized.find(':');
 
     std::lock_guard lock(mutex_);
     if (normalized == "ping") {
@@ -60,9 +61,17 @@ bool ClientState::dispatchCommand(const std::string& command) {
         transport_ = "RakNet-compatible UDP";
         state_ = "initializing";
         diagnostics_ = "Native state reset";
-    } else if (startsWith(normalized, "transport:")) {
-        const auto delimiter = sanitized.find(':');
-        const auto transport = delimiter == std::string::npos ? std::string() : trim(sanitized.substr(delimiter + 1));
+    } else if (startsWith(normalized, "transport")) {
+        if (transportSeparator == std::string::npos) {
+            return false;
+        }
+
+        const auto transportKeyword = normalized.substr(0, transportSeparator);
+        if (transportKeyword != "transport") {
+            return false;
+        }
+
+        const auto transport = trim(sanitized.substr(transportSeparator + 1));
         if (transport.empty()) {
             return false;
         }

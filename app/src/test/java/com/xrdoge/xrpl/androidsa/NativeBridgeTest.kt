@@ -65,4 +65,35 @@ class NativeBridgeTest {
             requireValidNativeCommand(tooLong)
         }
     }
+
+    @Test
+    fun requireValidNativeCommandAcceptsTransportCommand() {
+        assertEquals("transport:udp", requireValidNativeCommand("transport:udp"))
+    }
+
+    @Test
+    fun requireValidNativeCommandAcceptsMixedCaseTransportCommand() {
+        assertEquals("Transport:udp", requireValidNativeCommand("Transport:udp"))
+    }
+
+    @Test
+    fun requireValidNativeCommandRejectsMissingTransportSeparator() {
+        assertThrows(IllegalArgumentException::class.java) {
+            requireValidNativeCommand("transportudp")
+        }
+    }
+
+    @Test
+    fun requireValidNativeCommandRejectsTransportKeywordTail() {
+        assertThrows(IllegalArgumentException::class.java) {
+            requireValidNativeCommand("transport foo:bar")
+        }
+    }
+
+    @Test
+    fun requireValidNativeCommandRejectsWhitespaceBeforeTransportSeparator() {
+        assertThrows(IllegalArgumentException::class.java) {
+            requireValidNativeCommand("transport :udp")
+        }
+    }
 }
