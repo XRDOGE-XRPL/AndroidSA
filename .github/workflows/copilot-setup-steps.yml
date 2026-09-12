@@ -47,15 +47,25 @@ jobs:
       - name: Start local Google Maven proxy
         run: |
           nohup python3 tools/google_maven_proxy.py --host 127.0.0.1 --port 38473 >/tmp/androidsa-google-maven-proxy.log 2>&1 &
+          proxy_pid="$!"
 
-          for attempt in $(seq 1 30); do
-            if curl --silent --fail http://127.0.0.1:38473/ >/dev/null; then
+          for attempt in $(seq 1 180); do
+            if curl --silent --show-error --fail http://127.0.0.1:38473/ >/dev/null; then
               break
+            fi
+            if ! kill -0 "$proxy_pid" 2>/dev/null; then
+              echo "Local Google Maven proxy exited before becoming ready."
+              cat /tmp/androidsa-google-maven-proxy.log
+              exit 1
             fi
             sleep 1
           done
 
-          curl --silent --fail http://127.0.0.1:38473/ >/dev/null
+          if ! curl --silent --show-error --fail http://127.0.0.1:38473/ >/dev/null; then
+            echo "Local Google Maven proxy did not become ready within timeout."
+            cat /tmp/androidsa-google-maven-proxy.log
+            exit 1
+          fi
           {
             echo "ANDROIDSA_GOOGLE_MAVEN_URL=http://127.0.0.1:38473/"
             echo "ANDROIDSA_GOOGLE_MAVEN_PROXY_LOG=/tmp/androidsa-google-maven-proxy.log"
