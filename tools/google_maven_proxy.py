@@ -10,6 +10,7 @@ import subprocess
 import sys
 import tarfile
 import tempfile
+import zipfile
 from dataclasses import dataclass
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -249,6 +250,59 @@ class MavenMirrorIndex:
         self._download_to_file(href, destination)
 
     @staticmethod
+    def _patch_agp_plugin_jar(path: Path) -> None:
+        plugin_path = "com/android/build/gradle/AppPlugin.class"
+        delegate_path = "com/android/build/gradle/internal/plugins/AppPlugin.class"
+
+        with zipfile.ZipFile(path) as archive:
+            names = set(archive.namelist())
+            if plugin_path in names or delegate_path not in names:
+                return
+
+        javac = shutil.which("javac")
+        if javac is None:
+            raise RuntimeError("javac is required to patch the Android Gradle plugin jar")
+
+        with tempfile.TemporaryDirectory(prefix="androidsa-agp-patch-") as temp_dir:
+            temp_root = Path(temp_dir)
+            source_dir = temp_root / "src" / "com" / "android" / "build" / "gradle"
+            source_dir.mkdir(parents=True, exist_ok=True)
+            source_file = source_dir / "AppPlugin.java"
+            source_file.write_text(
+                """
+package com.android.build.gradle;
+
+public class AppPlugin extends com.android.build.gradle.internal.plugins.AppPlugin {
+    public AppPlugin(
+            org.gradle.tooling.provider.model.ToolingModelBuilderRegistry registry,
+            org.gradle.api.component.SoftwareComponentFactory softwareComponentFactory,
+            org.gradle.build.event.BuildEventsListenerRegistry buildEventsListenerRegistry,
+            org.gradle.api.configuration.BuildFeatures buildFeatures) {
+        super(registry, softwareComponentFactory, buildEventsListenerRegistry, buildFeatures);
+    }
+}
+""".strip()
+                + "\n",
+                encoding="utf-8",
+            )
+            classes_dir = temp_root / "classes"
+            classes_dir.mkdir(parents=True, exist_ok=True)
+            subprocess.run(
+                [
+                    javac,
+                    "-cp",
+                    str(path),
+                    "-d",
+                    str(classes_dir),
+                    str(source_file),
+                ],
+                check=True,
+            )
+            compiled_class = classes_dir / plugin_path
+            with zipfile.ZipFile(path, "a") as archive:
+                archive.write(compiled_class, plugin_path)
+
+    @staticmethod
     def _safe_extractall(archive: tarfile.TarFile, destination: Path) -> None:
         for member in archive.getmembers():
             member_path = destination / member.name
@@ -289,6 +343,8 @@ class MavenMirrorIndex:
                     self._download_lfs_object(donor, oid, size, temp_path)
             else:
                 self._download_to_file(donor.file_url(remote_path, binary=binary), temp_path)
+            if request_path.startswith("com/android/tools/build/gradle/") and request_path.endswith(".jar"):
+                self._patch_agp_plugin_jar(temp_path)
             os.replace(temp_path, artifact_path)
         except Exception:
             temp_path.unlink(missing_ok=True)
