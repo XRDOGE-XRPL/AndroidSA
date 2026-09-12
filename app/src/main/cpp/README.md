@@ -1,6 +1,6 @@
 # Native C++ Layer
 
-Der Ordner `/home/runner/work/AndroidSA/AndroidSA/app/src/main/cpp` enthält den nativen Kern von AndroidSA. Hier liegen JNI-Einstiegspunkte, Logging, Zustandsverwaltung, UDP-Probing und native Host-Tests.
+Der Ordner `app/src/main/cpp` enthält den nativen Kern von AndroidSA. Hier liegen JNI-Einstiegspunkte, Logging, Zustandsverwaltung, UDP-Probing und native Host-Tests.
 
 ## Bestandteile
 

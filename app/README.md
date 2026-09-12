@@ -1,6 +1,6 @@
 # App-Modul
 
-Das Modul `/home/runner/work/AndroidSA/AndroidSA/app` enthält die vollständige Android-Anwendung. Hier laufen Compose-Oberfläche, JNI-Bridge, Native-Build-Einbindung und JVM-Tests zusammen.
+Das Modul `app` enthält die vollständige Android-Anwendung. Hier laufen Compose-Oberfläche, JNI-Bridge, Native-Build-Einbindung und JVM-Tests zusammen.
 
 ## Modulzweck
 

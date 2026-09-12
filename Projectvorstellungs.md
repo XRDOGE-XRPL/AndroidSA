@@ -40,7 +40,7 @@ Der C++-Layer verwaltet den Clientzustand thread-sicher, verarbeitet Commands un
 ## Technische Highlights
 
 - Jetpack Compose als UI-Schicht
-- Kotlin 1.9 / Java 17
+- Kotlin mit JVM-Target 17 und Java 17
 - Android SDK 34 und minSdk 26
 - C++20 mit CMake
 - native Host-Tests plus JVM-Unit-Tests

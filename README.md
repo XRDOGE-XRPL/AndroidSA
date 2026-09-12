@@ -40,7 +40,7 @@ Die Standarddarstellung umfasst:
 
 ### 1. Android UI (Jetpack Compose)
 
-Datei: `/home/runner/work/AndroidSA/AndroidSA/app/src/main/java/com/xrdoge/xrpl/androidsa/MainActivity.kt`
+Datei: `app/src/main/java/com/xrdoge/xrpl/androidsa/MainActivity.kt`
 
 Die Compose-Oberfläche stellt mehrere Funktionsbereiche bereit:
 
@@ -60,7 +60,7 @@ Wichtige UI-Eigenschaften:
 
 ### 2. Kotlin/JNI-Bridge
 
-Datei: `/home/runner/work/AndroidSA/AndroidSA/app/src/main/java/com/xrdoge/xrpl/androidsa/NativeBridge.kt`
+Datei: `app/src/main/java/com/xrdoge/xrpl/androidsa/NativeBridge.kt`
 
 Die Bridge ist für folgende Aufgaben verantwortlich:
 
@@ -74,11 +74,11 @@ Die Bridge ist für folgende Aufgaben verantwortlich:
 
 Dateien:
 
-- `/home/runner/work/AndroidSA/AndroidSA/app/src/main/cpp/native-lib.cpp`
-- `/home/runner/work/AndroidSA/AndroidSA/app/src/main/cpp/native/network/ClientState.h`
-- `/home/runner/work/AndroidSA/AndroidSA/app/src/main/cpp/native/network/ClientState.cpp`
-- `/home/runner/work/AndroidSA/AndroidSA/app/src/main/cpp/native/logging/Logger.h`
-- `/home/runner/work/AndroidSA/AndroidSA/app/src/main/cpp/native/logging/Logger.cpp`
+- `app/src/main/cpp/native-lib.cpp`
+- `app/src/main/cpp/native/network/ClientState.h`
+- `app/src/main/cpp/native/network/ClientState.cpp`
+- `app/src/main/cpp/native/logging/Logger.h`
+- `app/src/main/cpp/native/logging/Logger.cpp`
 
 Der Native-Layer hält den Laufzeitzustand thread-sicher und stellt JNI-Einstiegspunkte für Summary, Event-Log und Command-Dispatch bereit. Netzwerknahe Abläufe werden über einen Loopback-UDP-Flow simuliert. Eingehende Probe-Pakete werden dekodiert und als Events protokolliert.
 
@@ -221,7 +221,7 @@ Das Root-Projekt aktiviert `base` und verdrahtet:
 
 ### CI-Workflow
 
-Workflow-Datei: `/home/runner/work/AndroidSA/AndroidSA/.github/workflows/android-background-build.yml`
+Workflow-Datei: `.github/workflows/android-background-build.yml`
 
 Die Pipeline führt aus:
 
