@@ -109,6 +109,32 @@ class MavenMirrorIndex:
 
         return mapping
 
+    def _fallback_metadata(self, request_path: str) -> dict[str, str] | None:
+        suffix = Path(request_path).suffix.lower()
+        if suffix not in BINARY_EXTENSIONS:
+            return None
+
+        parts = request_path.split("/")
+        if len(parts) < 4:
+            return None
+
+        group_path = "/".join(parts[:-3])
+        module_name = parts[-3]
+        version = parts[-2]
+        filename = parts[-1]
+
+        for variant_suffix in ("-android", "-jvm"):
+            variant_module = f"{module_name}{variant_suffix}"
+            variant_prefix = f"{module_name}-{version}"
+            if not filename.startswith(variant_prefix):
+                continue
+            variant_filename = filename.replace(variant_prefix, f"{variant_module}-{version}", 1)
+            metadata = self.mapping.get(f"{group_path}/{variant_module}/{version}/{variant_filename}")
+            if metadata is not None:
+                return metadata
+
+        return None
+
     def _ensure_donor_source(self, donor: Donor) -> Path:
         destination = self.source_root / donor.cache_key
         if destination.is_dir():
@@ -193,7 +219,9 @@ class MavenMirrorIndex:
 
         metadata = self.mapping.get(request_path)
         if metadata is None:
-            return None
+            metadata = self._fallback_metadata(request_path)
+            if metadata is None:
+                return None
 
         donor = Donor(metadata["owner"], metadata["repo"], metadata["ref"])
         remote_path = metadata["path"]
@@ -207,7 +235,11 @@ class MavenMirrorIndex:
             temp_path = Path(temp_file.name)
 
         try:
-            self._download_to_file(donor.file_url(remote_path, binary=binary), temp_path)
+            source_path = self.source_root / donor.cache_key / remote_path
+            if source_path.is_file():
+                shutil.copyfile(source_path, temp_path)
+            else:
+                self._download_to_file(donor.file_url(remote_path, binary=binary), temp_path)
             os.replace(temp_path, artifact_path)
         except Exception:
             temp_path.unlink(missing_ok=True)
