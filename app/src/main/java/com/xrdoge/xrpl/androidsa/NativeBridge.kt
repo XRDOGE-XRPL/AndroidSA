@@ -59,20 +59,20 @@ internal fun requireValidNativeCommand(command: String): String {
         normalized.startsWith("connect:") -> {
             requireExactValueCommand(sanitized, normalized, "connect", "Connect")
         }
-        normalized.startsWith("player") -> {
+        normalized == "player" || normalized.startsWith("player:") -> {
             requireExactValueCommand(sanitized, normalized, "player", "Player")
         }
-        normalized.startsWith("latency") -> {
+        normalized == "latency" || normalized.startsWith("latency:") -> {
             val latencyValue = requireExactValueCommand(sanitized, normalized, "latency", "Latency")
             val latencyMs = latencyValue.toIntOrNull()
             require(latencyMs != null && latencyMs >= 0) {
                 "Latency command value must be a non-negative integer"
             }
         }
-        normalized.startsWith("fail") -> {
+        normalized == "fail" || normalized.startsWith("fail:") -> {
             requireExactValueCommand(sanitized, normalized, "fail", "Fail")
         }
-        normalized.startsWith("simulate") -> {
+        normalized == "simulate" || normalized.startsWith("simulate:") -> {
             val simulateValue = requireExactValueCommand(sanitized, normalized, "simulate", "Simulate")
             require(simulateValue.lowercase() in setOf("rx", "tx")) {
                 "Simulate command value must be rx or tx"
