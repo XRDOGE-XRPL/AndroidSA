@@ -25,9 +25,6 @@ Java_com_xrdoge_xrpl_androidsa_NativeBridge_nativeDispatchCommand(JNIEnv* env, j
 
     const char* raw = env->GetStringUTFChars(command, nullptr);
     if (raw == nullptr) {
-        if (env->ExceptionCheck() == JNI_TRUE) {
-            env->ExceptionClear();
-        }
         return false;
     }
 

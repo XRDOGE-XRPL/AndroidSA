@@ -18,15 +18,31 @@ internal fun parseNativeOverview(summary: String): NativeOverview {
 }
 
 object NativeBridge {
-    init {
-        System.loadLibrary("androidsa")
-    }
+    @Volatile
+    private var libraryLoaded = false
 
     private external fun nativeGetClientSummary(): String
     private external fun nativeDispatchCommand(command: String): Boolean
 
-    fun overview(): NativeOverview = parseNativeOverview(nativeGetClientSummary())
+    @Synchronized
+    private fun ensureLibraryLoaded() {
+        if (!libraryLoaded) {
+            System.loadLibrary("androidsa")
+            libraryLoaded = true
+        }
+    }
 
-    fun refresh(command: String = "ping"): NativeOverview? =
-        if (nativeDispatchCommand(command)) overview() else null
+    fun overview(): Result<NativeOverview> = runCatching {
+        ensureLibraryLoaded()
+        parseNativeOverview(nativeGetClientSummary())
+    }
+
+    fun refresh(command: String = "ping"): Result<NativeOverview?> = runCatching {
+        ensureLibraryLoaded()
+        if (nativeDispatchCommand(command)) {
+            overview().getOrThrow()
+        } else {
+            null
+        }
+    }
 }

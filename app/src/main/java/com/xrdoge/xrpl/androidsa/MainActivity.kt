@@ -40,8 +40,8 @@ private fun nativeErrorOverview(message: String) = InitialOverview.copy(
     diagnostics = message,
 )
 
-private fun loadOverviewSafely(action: () -> NativeOverview): NativeOverview =
-    runCatching(action).getOrElse { error ->
+private fun loadOverviewSafely(action: () -> Result<NativeOverview>): NativeOverview =
+    action().getOrElse { error ->
         nativeErrorOverview(error.message ?: "Failed to load native state")
     }
 
@@ -62,7 +62,7 @@ private fun AndroidSAApp() {
     val scope = rememberCoroutineScope()
 
     LaunchedEffect(Unit) {
-        overview = withContext(Dispatchers.Default) {
+        overview = withContext(Dispatchers.IO) {
             loadOverviewSafely { NativeBridge.overview() }
         }
     }
@@ -91,12 +91,14 @@ private fun AndroidSAApp() {
                 onClick = {
                     val currentOverview = overview
                     scope.launch {
-                        overview = withContext(Dispatchers.Default) {
+                        overview = withContext(Dispatchers.IO) {
                             loadOverviewSafely {
-                                NativeBridge.refresh() ?: currentOverview.copy(
-                                    connectionState = "error",
-                                    diagnostics = "Native command was rejected",
-                                )
+                                NativeBridge.refresh().map { refreshed ->
+                                    refreshed ?: currentOverview.copy(
+                                        connectionState = "error",
+                                        diagnostics = "Native command was rejected",
+                                    )
+                                }
                             }
                         }
                     }
