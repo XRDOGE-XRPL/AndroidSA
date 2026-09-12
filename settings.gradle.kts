@@ -1,4 +1,8 @@
 pluginManagement {
+    plugins {
+        id("com.android.application") version "8.5.2"
+        id("org.jetbrains.kotlin.android") version "1.9.24"
+    }
     repositories {
         val androidSaGoogleMavenUrl = providers.gradleProperty("androidsa.google.maven.url")
             .orElse(providers.environmentVariable("ANDROIDSA_GOOGLE_MAVEN_URL"))
