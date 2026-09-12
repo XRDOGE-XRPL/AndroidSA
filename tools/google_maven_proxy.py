@@ -315,6 +315,12 @@ class MirrorHandler(BaseHTTPRequestHandler):
             self._send_text(HTTPStatus.OK, "AndroidSA Google Maven proxy is running.\n", send_body)
             return
 
+        synthetic_response = self._synthetic_response(request_path)
+        if synthetic_response is not None:
+            content_type, payload = synthetic_response
+            self._send_bytes(HTTPStatus.OK, content_type, payload, send_body)
+            return
+
         if any(
             request_path.endswith(suffix)
             for suffix in (".md5", ".sha1", ".sha256", ".sha512", "maven-metadata.xml")
@@ -337,21 +343,93 @@ class MirrorHandler(BaseHTTPRequestHandler):
             return
 
         data = artifact_path.read_bytes() if send_body else b""
-        self.send_response(HTTPStatus.OK)
-        self.send_header("Content-Length", str(artifact_path.stat().st_size))
-        self.send_header("Cache-Control", "public, max-age=3600")
-        self.end_headers()
-        if send_body:
-            self.wfile.write(data)
+        self._send_bytes(HTTPStatus.OK, "application/octet-stream", data, send_body, artifact_path.stat().st_size)
 
     def _send_text(self, status: HTTPStatus, message: str, send_body: bool) -> None:
         encoded = message.encode("utf-8")
+        self._send_bytes(status, "text/plain; charset=utf-8", encoded, send_body)
+
+    def _send_bytes(
+        self,
+        status: HTTPStatus,
+        content_type: str,
+        payload: bytes,
+        send_body: bool,
+        content_length: int | None = None,
+    ) -> None:
         self.send_response(status)
-        self.send_header("Content-Type", "text/plain; charset=utf-8")
-        self.send_header("Content-Length", str(len(encoded)))
+        self.send_header("Content-Type", content_type)
+        self.send_header("Content-Length", str(content_length if content_length is not None else len(payload)))
+        self.send_header("Cache-Control", "public, max-age=3600")
         self.end_headers()
         if send_body:
-            self.wfile.write(encoded)
+            self.wfile.write(payload)
+
+    @staticmethod
+    def _synthetic_response(request_path: str) -> tuple[str, bytes] | None:
+        marker_prefix = "com/android/application/com.android.application.gradle.plugin/"
+        if request_path.startswith(marker_prefix) and request_path.endswith(".pom"):
+            version = request_path.removeprefix(marker_prefix).split("/", 1)[0]
+            pom = f"""<project xmlns="http://maven.apache.org/POM/4.0.0"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>com.android.application</groupId>
+  <artifactId>com.android.application.gradle.plugin</artifactId>
+  <version>{version}</version>
+  <packaging>pom</packaging>
+  <dependencies>
+    <dependency>
+      <groupId>com.android.tools.build</groupId>
+      <artifactId>gradle</artifactId>
+      <version>{version}</version>
+    </dependency>
+  </dependencies>
+</project>
+""".encode("utf-8")
+            return "application/xml; charset=utf-8", pom
+
+        if request_path.startswith(marker_prefix) and request_path.endswith(".module"):
+            version = request_path.removeprefix(marker_prefix).split("/", 1)[0]
+            module = f"""{{
+  "formatVersion": "1.1",
+  "component": {{
+    "group": "com.android.application",
+    "module": "com.android.application.gradle.plugin",
+    "version": "{version}",
+    "attributes": {{
+      "org.gradle.status": "release"
+    }}
+  }},
+  "createdBy": {{
+    "gradle": {{
+      "version": "8.7"
+    }}
+  }},
+  "variants": [
+    {{
+      "name": "runtimeElements",
+      "attributes": {{
+        "org.gradle.category": "library",
+        "org.gradle.usage": "java-runtime"
+      }},
+      "dependencies": [
+        {{
+          "group": "com.android.tools.build",
+          "module": "gradle",
+          "version": {{
+            "requires": "{version}"
+          }}
+        }}
+      ],
+      "files": []
+    }}
+  ]
+}}
+""".encode("utf-8")
+            return "application/json; charset=utf-8", module
+
+        return None
 
 
 def main() -> int:
