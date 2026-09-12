@@ -8,6 +8,11 @@ buildscript {
             maven(url = uri(androidSaGoogleMavenUrl)) {
                 name = "AndroidSaGoogleMirror"
                 isAllowInsecureProtocol = androidSaGoogleMavenUrl.startsWith("http://")
+                content {
+                    includeGroupByRegex("androidx.*")
+                    includeGroupByRegex("com\\.android.*")
+                    includeGroupByRegex("com\\.google.*")
+                }
             }
         }
         mavenCentral()
