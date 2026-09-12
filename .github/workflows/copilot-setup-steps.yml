@@ -16,7 +16,7 @@ on:
 jobs:
   copilot-setup-steps:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     permissions:
       contents: read
     steps:
@@ -30,24 +30,20 @@ jobs:
           java-version: "17"
           cache: gradle
 
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
       - name: Prepare Gradle wrapper
         run: chmod +x ./gradlew
 
       - name: Start local Google Maven proxy
         run: |
           nohup python3 tools/google_maven_proxy.py --host 127.0.0.1 --port 38473 >/tmp/androidsa-google-maven-proxy.log 2>&1 &
-          echo $! >/tmp/androidsa-google-maven-proxy.pid
 
           for attempt in $(seq 1 30); do
             if curl --silent --fail http://127.0.0.1:38473/ >/dev/null; then
               break
             fi
-
-            if ! kill -0 "$(cat /tmp/androidsa-google-maven-proxy.pid)" 2>/dev/null; then
-              cat /tmp/androidsa-google-maven-proxy.log || true
-              exit 1
-            fi
-
             sleep 1
           done
 
@@ -61,3 +57,8 @@ jobs:
         env:
           ANDROIDSA_GOOGLE_MAVEN_URL: http://127.0.0.1:38473/
         run: ./gradlew --no-daemon help --stacktrace --refresh-dependencies
+
+      - name: Preload Android build dependencies
+        env:
+          ANDROIDSA_GOOGLE_MAVEN_URL: http://127.0.0.1:38473/
+        run: ./gradlew --no-daemon :app:testDebugUnitTest :app:assemble --stacktrace

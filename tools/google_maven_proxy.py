@@ -14,6 +14,7 @@ from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import quote, urlparse
+from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 
@@ -43,6 +44,10 @@ DEFAULT_DONORS = (
 
 TEXT_EXTENSIONS = {".module", ".pom", ".xml"}
 BINARY_EXTENSIONS = {".aar", ".jar", ".zip"}
+GOOGLE_MAVEN_BASE_URLS = (
+    "https://dl.google.com/dl/android/maven2",
+    "https://maven.google.com",
+)
 
 
 def parse_donors(raw_value: str | None) -> tuple[Donor, ...]:
@@ -171,28 +176,56 @@ class MavenMirrorIndex:
             return artifact_path
 
         metadata = self.mapping.get(request_path)
-        if metadata is None:
-            return None
+        if metadata is not None:
+            donor = Donor(metadata["owner"], metadata["repo"], metadata["ref"])
+            remote_path = metadata["path"]
+            suffix = Path(request_path).suffix.lower()
+            binary = suffix in BINARY_EXTENSIONS
+            if suffix not in BINARY_EXTENSIONS | TEXT_EXTENSIONS:
+                binary = False
 
-        donor = Donor(metadata["owner"], metadata["repo"], metadata["ref"])
-        remote_path = metadata["path"]
-        suffix = Path(request_path).suffix.lower()
-        binary = suffix in BINARY_EXTENSIONS
-        if suffix not in BINARY_EXTENSIONS | TEXT_EXTENSIONS:
-            binary = False
+            artifact_path.parent.mkdir(parents=True, exist_ok=True)
+            with tempfile.NamedTemporaryFile(delete=False, dir=str(artifact_path.parent)) as temp_file:
+                temp_path = Path(temp_file.name)
 
+            try:
+                self._download_to_file(donor.file_url(remote_path, binary=binary), temp_path)
+                os.replace(temp_path, artifact_path)
+                return artifact_path
+            except Exception:
+                temp_path.unlink(missing_ok=True)
+
+        if self._download_from_google_maven(request_path, artifact_path):
+            return artifact_path
+
+        return None
+
+    def _download_from_google_maven(self, request_path: str, artifact_path: Path) -> bool:
         artifact_path.parent.mkdir(parents=True, exist_ok=True)
-        with tempfile.NamedTemporaryFile(delete=False, dir=str(artifact_path.parent)) as temp_file:
-            temp_path = Path(temp_file.name)
+        last_error: Exception | None = None
 
-        try:
-            self._download_to_file(donor.file_url(remote_path, binary=binary), temp_path)
-            os.replace(temp_path, artifact_path)
-        except Exception:
-            temp_path.unlink(missing_ok=True)
-            raise
+        for base_url in GOOGLE_MAVEN_BASE_URLS:
+            with tempfile.NamedTemporaryFile(delete=False, dir=str(artifact_path.parent)) as temp_file:
+                temp_path = Path(temp_file.name)
+            try:
+                self._download_to_file(f"{base_url}/{request_path}", temp_path)
+                os.replace(temp_path, artifact_path)
+                return True
+            except HTTPError as exc:
+                temp_path.unlink(missing_ok=True)
+                if exc.code == HTTPStatus.NOT_FOUND:
+                    continue
+                last_error = exc
+            except URLError as exc:
+                temp_path.unlink(missing_ok=True)
+                last_error = exc
+            except Exception as exc:
+                temp_path.unlink(missing_ok=True)
+                last_error = exc
 
-        return artifact_path
+        if last_error is not None:
+            raise last_error
+        return False
 
 
 class MirrorHandler(BaseHTTPRequestHandler):
