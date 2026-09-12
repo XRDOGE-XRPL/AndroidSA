@@ -24,3 +24,5 @@ Alle relevanten Änderungen dieses Projekts werden in dieser Datei dokumentiert.
 - Native Command-Verarbeitung in C++ erweitert um reichere Zustandsübergänge, Statistiken und Event-Aufzeichnung.
 - Kotlin- und Native-Tests decken jetzt Parsing, Event-Logik und neue Commands ab.
 - Dokumentation für Architektur, Commands und Laufzeitverhalten erweitert.
+- Native Paket- und Verbindungsstatistiken werden für zentrale Flows jetzt über reale UDP-`sendto`/`recvfrom`-Operationen statt reinem Zähler-Mocking erhoben.
+- Native Event-Historie enthält dekodierte RakNet/Open:MP-orientierte Paketereignisse aus dem Bytestream-Pfad (inkl. RPC-Wrapper-Erkennung).
