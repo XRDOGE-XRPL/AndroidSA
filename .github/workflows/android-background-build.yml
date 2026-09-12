@@ -3,7 +3,9 @@ name: Android Full Build
 on:
   push:
     branches:
-      - "**"
+      - main
+      - master
+      - release/**
   pull_request:
   workflow_dispatch:
 
