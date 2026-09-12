@@ -1,27 +1,57 @@
 pluginManagement {
     repositories {
-        google()
-        mavenCentral()
-        gradlePluginPortal()
-    }
-    resolutionStrategy {
-        eachPlugin {
-            when (requested.id.id) {
-                "com.android.application" -> {
-                    useModule("com.android.tools.build:gradle:${requested.version}")
+        val androidSaGoogleMavenUrl = providers.gradleProperty("androidsa.google.maven.url")
+            .orElse(providers.environmentVariable("ANDROIDSA_GOOGLE_MAVEN_URL"))
+            .orNull
+        if (androidSaGoogleMavenUrl.isNullOrBlank()) {
+            google {
+                content {
+                    includeGroupByRegex("androidx.*")
+                    includeGroupByRegex("com\\.android.*")
+                    includeGroupByRegex("com\\.google.*")
                 }
-                "org.jetbrains.kotlin.android" -> {
-                    useModule("org.jetbrains.kotlin:kotlin-gradle-plugin:${requested.version}")
+            }
+        } else {
+            maven(url = uri(androidSaGoogleMavenUrl)) {
+                name = "AndroidSaGoogleMirror"
+                isAllowInsecureProtocol = androidSaGoogleMavenUrl.startsWith("http://")
+                content {
+                    includeGroupByRegex("androidx.*")
+                    includeGroupByRegex("com\\.android.*")
+                    includeGroupByRegex("com\\.google.*")
                 }
             }
         }
+        mavenCentral()
+        gradlePluginPortal()
     }
 }
 
 dependencyResolutionManagement {
     repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
     repositories {
-        google()
+        val androidSaGoogleMavenUrl = providers.gradleProperty("androidsa.google.maven.url")
+            .orElse(providers.environmentVariable("ANDROIDSA_GOOGLE_MAVEN_URL"))
+            .orNull
+        if (androidSaGoogleMavenUrl.isNullOrBlank()) {
+            google {
+                content {
+                    includeGroupByRegex("androidx.*")
+                    includeGroupByRegex("com\\.android.*")
+                    includeGroupByRegex("com\\.google.*")
+                }
+            }
+        } else {
+            maven(url = uri(androidSaGoogleMavenUrl)) {
+                name = "AndroidSaGoogleMirror"
+                isAllowInsecureProtocol = androidSaGoogleMavenUrl.startsWith("http://")
+                content {
+                    includeGroupByRegex("androidx.*")
+                    includeGroupByRegex("com\\.android.*")
+                    includeGroupByRegex("com\\.google.*")
+                }
+            }
+        }
         mavenCentral()
     }
 }
