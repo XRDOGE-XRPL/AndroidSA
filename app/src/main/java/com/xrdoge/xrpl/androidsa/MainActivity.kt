@@ -10,7 +10,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -59,12 +61,16 @@ class MainActivity : ComponentActivity() {
 @Composable
 private fun AndroidSAApp() {
     var overview by remember { mutableStateOf(InitialOverview) }
+    var commandText by remember { mutableStateOf("ping") }
+    var isLoading by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
 
     LaunchedEffect(Unit) {
+        isLoading = true
         overview = withContext(Dispatchers.IO) {
             loadOverviewSafely { NativeBridge.overview() }
         }
+        isLoading = false
     }
 
     Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
@@ -87,13 +93,25 @@ private fun AndroidSAApp() {
             OverviewCard(title = "Transport", value = overview.transport)
             OverviewCard(title = "Connection", value = overview.connectionState)
             OverviewCard(title = "Diagnostics", value = overview.diagnostics)
+            OutlinedTextField(
+                value = commandText,
+                onValueChange = { commandText = it },
+                label = { Text("Native command") },
+                supportingText = { Text("Examples: ping, connect, disconnect, reset, transport:udp") },
+                modifier = Modifier.fillMaxWidth(),
+                enabled = !isLoading,
+                singleLine = true,
+            )
             Button(
+                enabled = !isLoading,
                 onClick = {
                     val currentOverview = overview
+                    val commandToDispatch = commandText
                     scope.launch {
+                        isLoading = true
                         overview = withContext(Dispatchers.IO) {
                             loadOverviewSafely {
-                                NativeBridge.refresh().recover {
+                                NativeBridge.refresh(commandToDispatch).recover {
                                     currentOverview.copy(
                                         connectionState = "error",
                                         diagnostics = it.message ?: "Native command failed",
@@ -101,10 +119,15 @@ private fun AndroidSAApp() {
                                 }
                             }
                         }
+                        isLoading = false
                     }
                 },
             ) {
-                Text("Refresh native state")
+                if (isLoading) {
+                    CircularProgressIndicator()
+                } else {
+                    Text("Send native command")
+                }
             }
         }
     }

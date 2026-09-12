@@ -1,6 +1,7 @@
 package com.xrdoge.xrpl.androidsa
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertThrows
 import org.junit.Test
 
 class NativeBridgeTest {
@@ -32,5 +33,36 @@ class NativeBridgeTest {
         assertEquals("unavailable", overview.transport)
         assertEquals("offline", overview.connectionState)
         assertEquals("No diagnostics available", overview.diagnostics)
+    }
+
+    @Test
+    fun parseNativeOverviewTrimsWhitespace() {
+        val overview = parseNativeOverview(" AndroidSA | udp | ready | diagnostics ")
+
+        assertEquals("AndroidSA", overview.clientName)
+        assertEquals("udp", overview.transport)
+        assertEquals("ready", overview.connectionState)
+        assertEquals("diagnostics", overview.diagnostics)
+    }
+
+    @Test
+    fun requireValidNativeCommandTrimsInput() {
+        assertEquals("ping", requireValidNativeCommand("  ping  "))
+    }
+
+    @Test
+    fun requireValidNativeCommandRejectsBlankInput() {
+        assertThrows(IllegalArgumentException::class.java) {
+            requireValidNativeCommand("   ")
+        }
+    }
+
+    @Test
+    fun requireValidNativeCommandRejectsTooLongInput() {
+        val tooLong = "x".repeat(MaxNativeCommandLength + 1)
+
+        assertThrows(IllegalArgumentException::class.java) {
+            requireValidNativeCommand(tooLong)
+        }
     }
 }

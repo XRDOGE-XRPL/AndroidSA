@@ -38,10 +38,24 @@ cd AndroidSA
 - Native C++20-Bibliothek mit thread-sicherem Client-Zustand
 - Kotlin-Unit-Test für die Parsing-Logik
 
+## Native-Kommandos in der App
+
+- `ping` → setzt Zustand auf `ready`
+- `connect` → simuliert Verbindungsaufbau (`connected`)
+- `disconnect` → simuliert Trennung (`disconnected`)
+- `reset` → setzt nativen Zustand auf Startwerte zurück
+- `transport:<name>` → setzt den aktiven Transport auf `<name>`
+
 ## Hinweise zur lokalen Validierung
 
 - Vollbuild: `./gradlew build`
+- Checks + Build: `./gradlew check build`
 - Nativen Teil isoliert prüfen: CMake mit dem Android-NDK gegen `app/src/main/cpp`
+
+## CI
+
+- Workflow: `.github/workflows/android-background-build.yml`
+- Führt `./gradlew --no-daemon check build --stacktrace` aus
 
 ## Lizenz
 
