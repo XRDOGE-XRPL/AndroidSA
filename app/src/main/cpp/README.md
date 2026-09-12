@@ -41,7 +41,7 @@ Der native Layer liefert aktuell ein elfspaltiges Pipe-Format:
 AndroidSA|<transport>|<state>|<diagnostics>|<server>|<player>|<latencyMs>|<packetsSent>|<packetsReceived>|<connectionAttempts>|<lastCommand>
 ```
 
-Dieses Format wird direkt in Kotlin weiterverarbeitet. Änderungen daran erfordern immer eine Synchronisierung mit `NativeBridge.kt` und den zugehörigen Tests.
+Dieses Format wird direkt in Kotlin weiterverarbeitet. Änderungen daran erfordern immer eine Synchronisierung mit `app/src/main/java/com/xrdoge/xrpl/androidsa/NativeBridge.kt` und den zugehörigen Tests.
 
 ## Unterstützte Commands
 

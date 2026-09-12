@@ -13,7 +13,7 @@
 - [ ] Gesamtbuild erfolgreich: `./gradlew build`
 - [ ] Checks erfolgreich: `./gradlew check build`
 - [ ] App-Unit-Tests erfolgreich: `./gradlew :app:testDebugUnitTest`
-- [ ] Native Host-Tests erfolgreich (`client_state_test` via CMake/CTest)
+- [ ] Native Host-Tests erfolgreich (`client_state_test` via CMake/CTest, siehe `app/src/main/cpp/README.md`)
 - [ ] CI-Workflow `android-background-build.yml` ist grün
 - [ ] CI-Artefakte und Testreports wurden geprüft
 
