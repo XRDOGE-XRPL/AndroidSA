@@ -358,7 +358,7 @@ private fun AndroidSAApp() {
                         dispatchCommand(commandText)
                     },
                 ) {
-                    if (isLoading) {
+                    if (isBusy) {
                         Row(
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                             verticalAlignment = Alignment.CenterVertically,

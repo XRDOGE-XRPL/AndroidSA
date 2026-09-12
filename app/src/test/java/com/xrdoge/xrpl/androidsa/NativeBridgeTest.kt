@@ -177,6 +177,13 @@ class NativeBridgeTest {
     }
 
     @Test
+    fun requireValidNativeCommandRejectsMissingPlayerSeparator() {
+        assertThrows(IllegalArgumentException::class.java) {
+            requireValidNativeCommand("player")
+        }
+    }
+
+    @Test
     fun requireValidNativeCommandAcceptsLatencyCommand() {
         assertEquals("latency:42", requireValidNativeCommand("latency:42"))
     }
@@ -185,6 +192,13 @@ class NativeBridgeTest {
     fun requireValidNativeCommandRejectsInvalidLatencyValue() {
         assertThrows(IllegalArgumentException::class.java) {
             requireValidNativeCommand("latency:fast")
+        }
+    }
+
+    @Test
+    fun requireValidNativeCommandRejectsMissingLatencySeparator() {
+        assertThrows(IllegalArgumentException::class.java) {
+            requireValidNativeCommand("latency")
         }
     }
 
@@ -203,5 +217,12 @@ class NativeBridgeTest {
     @Test
     fun requireValidNativeCommandAcceptsFailCommand() {
         assertEquals("fail:timeout", requireValidNativeCommand("fail:timeout"))
+    }
+
+    @Test
+    fun requireValidNativeCommandRejectsMissingFailSeparator() {
+        assertThrows(IllegalArgumentException::class.java) {
+            requireValidNativeCommand("fail")
+        }
     }
 }
