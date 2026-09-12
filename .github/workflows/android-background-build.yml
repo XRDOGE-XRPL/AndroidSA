@@ -8,8 +8,11 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: android-full-build-${{ github.ref }}
+  group: android-full-build-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
+
+permissions:
+  contents: read
 
 jobs:
   full-build:
