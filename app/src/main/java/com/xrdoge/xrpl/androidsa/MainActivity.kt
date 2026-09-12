@@ -93,10 +93,10 @@ private fun AndroidSAApp() {
                     scope.launch {
                         overview = withContext(Dispatchers.IO) {
                             loadOverviewSafely {
-                                NativeBridge.refresh().map { refreshed ->
-                                    refreshed ?: currentOverview.copy(
+                                NativeBridge.refresh().recover {
+                                    currentOverview.copy(
                                         connectionState = "error",
-                                        diagnostics = "Native command was rejected",
+                                        diagnostics = it.message ?: "Native command failed",
                                     )
                                 }
                             }

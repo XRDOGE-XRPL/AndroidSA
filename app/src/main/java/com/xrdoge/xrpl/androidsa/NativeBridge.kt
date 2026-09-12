@@ -37,12 +37,12 @@ object NativeBridge {
         parseNativeOverview(nativeGetClientSummary())
     }
 
-    fun refresh(command: String = "ping"): Result<NativeOverview?> = runCatching {
+    fun refresh(command: String = "ping"): Result<NativeOverview> = runCatching {
         ensureLibraryLoaded()
         if (nativeDispatchCommand(command)) {
             overview().getOrThrow()
         } else {
-            null
+            error("Native command was rejected")
         }
     }
 }
