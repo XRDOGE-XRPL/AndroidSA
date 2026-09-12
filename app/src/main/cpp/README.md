@@ -45,3 +45,11 @@ Der native Teil wird über das App-Modul gebaut. Direkter Einstieg:
 ```
 
 Die CMake-Minimalversion ist in `CMakeLists.txt` auf `3.22.1` gesetzt.
+
+Für Host-Tests (ohne Android-Ziel) kann zusätzlich der native Test ausgeführt werden:
+
+```bash
+cmake -S app/src/main/cpp -B /tmp/androidsa-native-tests -DANDROIDSA_ENABLE_NATIVE_TESTS=ON
+cmake --build /tmp/androidsa-native-tests --target client_state_test
+ctest --test-dir /tmp/androidsa-native-tests --output-on-failure
+```

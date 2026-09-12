@@ -150,8 +150,9 @@ Die CI-Pipeline:
 1. Checkout (`actions/checkout@v4`)
 2. JDK 17 + Gradle Cache (`actions/setup-java@v4`)
 3. Gradle Setup + Wrapper Validation
-4. Unit-Tests (`:app:testDebugUnitTest`)
-5. Build mit:
+4. Native Host-Tests (`client_state_test` via CMake/CTest)
+5. Unit-Tests (`:app:testDebugUnitTest`)
+6. Build mit:
 
 ```bash
 ./gradlew --no-daemon check build --stacktrace
