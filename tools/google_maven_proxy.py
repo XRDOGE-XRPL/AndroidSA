@@ -177,6 +177,10 @@ class MavenMirrorIndex:
         module_name = artifact_parts[1]
         version = artifact_parts[2]
         filename = artifact_parts[4]
+        suffix = Path(filename).suffix.lower()
+        canonical_filename = f"{module_name}-{version}{suffix}"
+        if suffix in BINARY_EXTENSIONS and filename.endswith(("-release" + suffix, "-debug" + suffix)):
+            filename = canonical_filename
         return f"{group_id}/{module_name}/{version}/{filename}"
 
     @staticmethod
