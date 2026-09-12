@@ -1,49 +1,35 @@
 plugins {
-    id("com.android.application")
-    id("org.jetbrains.kotlin.android")
+    base
 }
 
-android {
-    namespace = "com.xrdoge.androidsa"
-    compileSdk = 34
+val requiredFoundationFiles = listOf(
+    "src/main/AndroidManifest.xml",
+    "src/main/java/com/xrdoge/androidsa/MainActivity.kt",
+    "src/main/res/values/strings.xml",
+    "src/main/res/values/themes.xml"
+)
 
-    defaultConfig {
-        applicationId = "com.xrdoge.androidsa"
-        minSdk = 26
-        targetSdk = 34
-        versionCode = 1
-        versionName = "0.1.0"
+val validateProjectFoundation = tasks.register("validateProjectFoundation") {
+    group = "verification"
+    description = "Validates the initial Android project foundation files."
 
-        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-    }
+    doLast {
+        val missing = requiredFoundationFiles.filterNot {
+            layout.projectDirectory.file(it).asFile.exists()
+        }
 
-    buildTypes {
-        release {
-            isMinifyEnabled = false
-            proguardFiles(
-                getDefaultProguardFile("proguard-android-optimize.txt"),
-                "proguard-rules.pro"
+        if (missing.isNotEmpty()) {
+            throw GradleException(
+                "Missing project foundation files:\n - ${missing.joinToString("\n - ")}"
             )
         }
     }
-
-    compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_17
-        targetCompatibility = JavaVersion.VERSION_17
-    }
-
-    kotlinOptions {
-        jvmTarget = "17"
-    }
 }
 
-dependencies {
-    implementation("androidx.activity:activity-ktx:1.9.2")
-    implementation("androidx.core:core-ktx:1.13.1")
-    implementation("androidx.appcompat:appcompat:1.7.0")
-    implementation("com.google.android.material:material:1.12.0")
+tasks.named("assemble") {
+    dependsOn(validateProjectFoundation)
+}
 
-    testImplementation("junit:junit:4.13.2")
-    androidTestImplementation("androidx.test.ext:junit:1.2.1")
-    androidTestImplementation("androidx.test.espresso:espresso-core:3.6.1")
+tasks.named("check") {
+    dependsOn(validateProjectFoundation)
 }

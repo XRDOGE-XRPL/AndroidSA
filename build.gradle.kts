@@ -1,4 +1,14 @@
 plugins {
-    id("com.android.application") version "8.5.2" apply false
-    id("org.jetbrains.kotlin.android") version "1.9.24" apply false
+    base
+}
+
+group = "com.xrdoge.androidsa"
+version = "0.1.0"
+
+tasks.named("build") {
+    dependsOn(":app:build")
+}
+
+tasks.named("check") {
+    dependsOn(":app:check")
 }
