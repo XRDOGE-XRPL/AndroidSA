@@ -37,6 +37,8 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
+private const val MaxUiRecentEvents = 12
+
 private val InitialOverview = NativeOverview(
     clientName = "AndroidSA",
     transport = "loading",
@@ -110,6 +112,18 @@ private fun AndroidSAApp() {
         latencyText = newSnapshot.overview.latencyMs.toString()
     }
 
+    fun applyLocalError(message: String) {
+        applySnapshot(
+            snapshot.copy(
+                overview = snapshot.overview.copy(
+                    connectionState = "error",
+                    diagnostics = message,
+                ),
+                recentEvents = (listOf(message) + snapshot.recentEvents).take(MaxUiRecentEvents),
+            ),
+        )
+    }
+
     val dispatchCommand: (String) -> Unit = dispatch@{ commandToDispatch ->
         if (isBusy) {
             return@dispatch
@@ -118,17 +132,7 @@ private fun AndroidSAApp() {
         val sanitizedCommand = runCatching {
             requireValidNativeCommand(commandToDispatch)
         }.getOrElse { validationError ->
-            applySnapshot(
-                snapshot.copy(
-                    overview = snapshot.overview.copy(
-                        connectionState = "error",
-                        diagnostics = validationError.message ?: "Native command validation failed",
-                    ),
-                    recentEvents = listOf(
-                        validationError.message ?: "Native command validation failed",
-                    ) + snapshot.recentEvents,
-                ),
-            )
+            applyLocalError(validationError.message ?: "Native command validation failed")
             return@dispatch
         }
 
@@ -140,32 +144,15 @@ private fun AndroidSAApp() {
                 }
                 applySnapshot(
                     result.getOrElse {
-                        snapshot.copy(
-                            overview = snapshot.overview.copy(
-                                connectionState = "error",
-                                diagnostics = it.message ?: "Native command failed",
-                            ),
-                            recentEvents = listOf(
-                                it.message ?: "Native command failed",
-                            ) + snapshot.recentEvents,
-                        )
+                        applyLocalError(it.message ?: "Native command failed")
+                        return@getOrElse snapshot
                     },
                 )
             } catch (error: Exception) {
                 if (error is CancellationException) {
                     throw error
                 }
-                applySnapshot(
-                    snapshot.copy(
-                        overview = snapshot.overview.copy(
-                            connectionState = "error",
-                            diagnostics = error.message ?: "Native command failed",
-                        ),
-                        recentEvents = listOf(
-                            error.message ?: "Native command failed",
-                        ) + snapshot.recentEvents,
-                    ),
-                )
+                applyLocalError(error.message ?: "Native command failed")
             } finally {
                 val finishingJob = coroutineContext[Job]
                 if (commandJob === finishingJob) {
@@ -237,17 +224,9 @@ private fun AndroidSAApp() {
                     singleLine = true,
                 )
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    ActionButton(label = "Connect current", enabled = !isBusy) {
-                        dispatchPreset("connect")
-                    }
-                    ActionButton(
-                        label = "Connect custom",
-                        enabled = !isBusy && serverAddressText.isNotBlank(),
-                    ) {
+                    ActionButton(label = "Connect server", enabled = !isBusy && serverAddressText.isNotBlank()) {
                         dispatchPreset("connect:${serverAddressText.trim()}")
                     }
-                }
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     ActionButton(label = "Reconnect", enabled = !isBusy) {
                         dispatchPreset("reconnect")
                     }

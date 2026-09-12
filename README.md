@@ -193,7 +193,7 @@ Zusätzlich werden Testreports als CI-Artefakt hochgeladen.
 - **Gradle/Plugin kann nicht aufgelöst werden:** Netzwerkzugriff auf Google Maven prüfen.
 - **NDK/CMake-Probleme:** installierte Versionen mit `app/build.gradle.kts` abgleichen.
 - **JNI-Library lädt nicht:** sicherstellen, dass `androidsa` erfolgreich gebaut wurde.
-- **Command wird abgelehnt:** auf Syntax (`transport:<value>`, `player:<value>`, `latency:<ms>`, `diagnostics:<value>`), Länge und verbotene Zeichen prüfen.
+- **Command wird abgelehnt:** auf Syntax (`connect:<server>`, `transport:<value>`, `player:<value>`, `latency:<ms>`, `simulate:rx|tx`, `diagnostics:<value>`, `fail:<reason>`), Länge und verbotene Zeichen prüfen.
 
 ## Lizenz
 

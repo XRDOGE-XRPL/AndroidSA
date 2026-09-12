@@ -41,8 +41,7 @@ Validierung im nativen Layer:
 - maximale Länge 64 Zeichen
 - keine Steuerzeichen
 - kein `|`
-- `transport`, `connect:<server>`, `player:<name>`, `latency:<ms>`, `simulate:<value>` und `fail:<reason>` nutzen exakte `keyword:<value>`-Syntax
-- `diagnostics` muss exakt mit `:` getrennt sein
+- `transport`, `connect:<server>`, `player:<name>`, `latency:<ms>`, `simulate:<value>`, `diagnostics:<value>` und `fail:<reason>` nutzen exakte `keyword:<value>`-Syntax
 - `latency` akzeptiert nur nicht-negative Integer
 - `simulate` akzeptiert nur `rx` oder `tx`
 
