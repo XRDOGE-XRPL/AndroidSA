@@ -9,9 +9,10 @@ Der native Layer kapselt JNI-Einstiegspunkte, Zustandsverwaltung und Logging fü
 - `native-lib.cpp`  
   JNI-Funktionen:
   - `nativeGetClientSummary()`
+  - `nativeGetRecentEvents()`
   - `nativeDispatchCommand(command)`
 - `native/network/ClientState.h/.cpp`  
-  Thread-sicherer Client-Zustand + Command-Dispatch.
+  Thread-sicherer Client-Zustand, Event-Historie und Command-Dispatch.
 - `native/logging/Logger.h/.cpp`  
   Logging-Helfer über Android Logcat.
 
@@ -21,11 +22,18 @@ Der native Layer kapselt JNI-Einstiegspunkte, Zustandsverwaltung und Logging fü
 
 - `ping`
 - `connect`
+- `connect:<server>`
+- `reconnect`
 - `disconnect`
 - `reset`
 - `status`
 - `transport:<name>`
+- `player:<name>`
+- `latency:<ms>`
+- `simulate:rx`
+- `simulate:tx`
 - `diagnostics:<text>`
+- `fail:<reason>`
 
 Validierung im nativen Layer:
 
@@ -33,8 +41,24 @@ Validierung im nativen Layer:
 - maximale Länge 64 Zeichen
 - keine Steuerzeichen
 - kein `|`
-- `transport` muss exakt mit `:` getrennt sein
-- `diagnostics` muss exakt mit `:` getrennt sein
+- `transport`, `connect:<server>`, `player:<name>`, `latency:<ms>`, `simulate:<value>`, `diagnostics:<value>` und `fail:<reason>` nutzen exakte `keyword:<value>`-Syntax
+- `latency` akzeptiert nur nicht-negative Integer
+- `simulate` akzeptiert nur `rx` oder `tx`
+
+## Laufzeitdaten
+
+Der Native-State liefert eine erweiterte Summary inklusive:
+
+- Transport
+- Connection-State
+- Diagnostics
+- Server-Adresse
+- Spielername
+- Latenz
+- Paket-Zähler (TX/RX)
+- Anzahl der Verbindungsversuche
+- letzter erfolgreicher Command
+- begrenzte Event-Historie für Debug-Ausgaben
 
 ## Build-Hinweise
 

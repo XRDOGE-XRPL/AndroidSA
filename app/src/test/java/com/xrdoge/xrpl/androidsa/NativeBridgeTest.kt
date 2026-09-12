@@ -13,36 +13,84 @@ class NativeBridgeTest {
         assertEquals("udp", overview.transport)
         assertEquals("offline", overview.connectionState)
         assertEquals("No diagnostics available", overview.diagnostics)
+        assertEquals("demo.sa-mp.local:7777", overview.serverAddress)
+        assertEquals("Guest", overview.playerName)
+        assertEquals(0, overview.latencyMs)
+        assertEquals(0, overview.packetsSent)
+        assertEquals(0, overview.packetsReceived)
+        assertEquals(0, overview.connectionAttempts)
+        assertEquals("startup", overview.lastCommand)
     }
 
     @Test
-    fun parseNativeOverviewPreservesPipesInsideDiagnostics() {
+    fun parseNativeOverviewUsesFallbacksForBlankSegments() {
+        val overview = parseNativeOverview("| | | | | | | | | | ")
+
+        assertEquals("AndroidSA", overview.clientName)
+        assertEquals("unavailable", overview.transport)
+        assertEquals("offline", overview.connectionState)
+        assertEquals("No diagnostics available", overview.diagnostics)
+        assertEquals("demo.sa-mp.local:7777", overview.serverAddress)
+        assertEquals("Guest", overview.playerName)
+        assertEquals(0, overview.latencyMs)
+        assertEquals(0, overview.packetsSent)
+        assertEquals(0, overview.packetsReceived)
+        assertEquals(0, overview.connectionAttempts)
+        assertEquals("startup", overview.lastCommand)
+    }
+
+    @Test
+    fun parseNativeOverviewPreservesLegacyPipesInsideDiagnostics() {
         val overview = parseNativeOverview("AndroidSA|udp|ready|pipe|inside|diagnostics")
 
         assertEquals("AndroidSA", overview.clientName)
         assertEquals("udp", overview.transport)
         assertEquals("ready", overview.connectionState)
         assertEquals("pipe|inside|diagnostics", overview.diagnostics)
+        assertEquals("demo.sa-mp.local:7777", overview.serverAddress)
     }
 
     @Test
-    fun parseNativeOverviewUsesFallbacksForBlankSegments() {
-        val overview = parseNativeOverview("| | | ")
-
-        assertEquals("AndroidSA", overview.clientName)
-        assertEquals("unavailable", overview.transport)
-        assertEquals("offline", overview.connectionState)
-        assertEquals("No diagnostics available", overview.diagnostics)
-    }
-
-    @Test
-    fun parseNativeOverviewTrimsWhitespace() {
-        val overview = parseNativeOverview(" AndroidSA | udp | ready | diagnostics ")
+    fun parseNativeOverviewTrimsWhitespaceAndReadsExtendedFields() {
+        val overview = parseNativeOverview(
+            " AndroidSA | udp | ready | diagnostics | example.org:7777 | Ryder | 42 | 7 | 9 | 3 | connect:example.org:7777 "
+        )
 
         assertEquals("AndroidSA", overview.clientName)
         assertEquals("udp", overview.transport)
         assertEquals("ready", overview.connectionState)
         assertEquals("diagnostics", overview.diagnostics)
+        assertEquals("example.org:7777", overview.serverAddress)
+        assertEquals("Ryder", overview.playerName)
+        assertEquals(42, overview.latencyMs)
+        assertEquals(7, overview.packetsSent)
+        assertEquals(9, overview.packetsReceived)
+        assertEquals(3, overview.connectionAttempts)
+        assertEquals("connect:example.org:7777", overview.lastCommand)
+    }
+
+    @Test
+    fun parseNativeOverviewFallsBackForInvalidNumericFields() {
+        val overview = parseNativeOverview("AndroidSA|udp|ready|diag|server|Guest|oops|nope|nah|bad|status")
+
+        assertEquals(0, overview.latencyMs)
+        assertEquals(0, overview.packetsSent)
+        assertEquals(0, overview.packetsReceived)
+        assertEquals(0, overview.connectionAttempts)
+    }
+
+    @Test
+    fun parseNativeEventLogSplitsNonBlankLines() {
+        val events = parseNativeEventLog("one\n\n two \nthree")
+
+        assertEquals(listOf("one", "two", "three"), events)
+    }
+
+    @Test
+    fun parseNativeEventLogFallsBackWhenEmpty() {
+        val events = parseNativeEventLog("   \n  ")
+
+        assertEquals(listOf("No recent events"), events)
     }
 
     @Test
@@ -86,26 +134,6 @@ class NativeBridgeTest {
     }
 
     @Test
-    fun requireValidNativeCommandAcceptsStatusCommand() {
-        assertEquals("status", requireValidNativeCommand("status"))
-    }
-
-    @Test
-    fun requireValidNativeCommandAcceptsDiagnosticsCommand() {
-        assertEquals("diagnostics:ok", requireValidNativeCommand("diagnostics:ok"))
-    }
-
-    @Test
-    fun requireValidNativeCommandAcceptsMixedCaseDiagnosticsCommand() {
-        assertEquals("Diagnostics:ok", requireValidNativeCommand("Diagnostics:ok"))
-    }
-
-    @Test
-    fun requireValidNativeCommandAcceptsMixedCaseTransportCommand() {
-        assertEquals("Transport:udp", requireValidNativeCommand("Transport:udp"))
-    }
-
-    @Test
     fun requireValidNativeCommandRejectsMissingTransportSeparator() {
         assertThrows(IllegalArgumentException::class.java) {
             requireValidNativeCommand("transportudp")
@@ -120,28 +148,81 @@ class NativeBridgeTest {
     }
 
     @Test
-    fun requireValidNativeCommandRejectsWhitespaceBeforeTransportSeparator() {
+    fun requireValidNativeCommandAcceptsDiagnosticsCommand() {
+        assertEquals("diagnostics:ok", requireValidNativeCommand("diagnostics:ok"))
+    }
+
+    @Test
+    fun requireValidNativeCommandAcceptsConnectWithServer() {
+        assertEquals("connect:demo.sa-mp.local:7777", requireValidNativeCommand("connect:demo.sa-mp.local:7777"))
+    }
+
+    @Test
+    fun requireValidNativeCommandRejectsBlankConnectValue() {
         assertThrows(IllegalArgumentException::class.java) {
-            requireValidNativeCommand("transport :udp")
+            requireValidNativeCommand("connect:   ")
         }
     }
 
     @Test
-    fun requireValidNativeCommandRejectsMissingDiagnosticsSeparator() {
+    fun requireValidNativeCommandAcceptsPlayerCommand() {
+        assertEquals("player:CJ", requireValidNativeCommand("player:CJ"))
+    }
+
+    @Test
+    fun requireValidNativeCommandRejectsBlankPlayerValue() {
         assertThrows(IllegalArgumentException::class.java) {
-            requireValidNativeCommand("diagnostics")
+            requireValidNativeCommand("player:   ")
         }
     }
 
     @Test
-    fun requireValidNativeCommandAcceptsDiagnosticsPrefixedGenericCommand() {
-        assertEquals("diagnosticsok", requireValidNativeCommand("diagnosticsok"))
+    fun requireValidNativeCommandRejectsMissingPlayerSeparator() {
+        assertThrows(IllegalArgumentException::class.java) {
+            requireValidNativeCommand("player")
+        }
     }
 
     @Test
-    fun requireValidNativeCommandRejectsBlankDiagnosticsValue() {
+    fun requireValidNativeCommandAcceptsLatencyCommand() {
+        assertEquals("latency:42", requireValidNativeCommand("latency:42"))
+    }
+
+    @Test
+    fun requireValidNativeCommandRejectsInvalidLatencyValue() {
         assertThrows(IllegalArgumentException::class.java) {
-            requireValidNativeCommand("diagnostics:   ")
+            requireValidNativeCommand("latency:fast")
+        }
+    }
+
+    @Test
+    fun requireValidNativeCommandRejectsMissingLatencySeparator() {
+        assertThrows(IllegalArgumentException::class.java) {
+            requireValidNativeCommand("latency")
+        }
+    }
+
+    @Test
+    fun requireValidNativeCommandAcceptsSimulateCommand() {
+        assertEquals("simulate:rx", requireValidNativeCommand("simulate:rx"))
+    }
+
+    @Test
+    fun requireValidNativeCommandRejectsUnsupportedSimulateDirection() {
+        assertThrows(IllegalArgumentException::class.java) {
+            requireValidNativeCommand("simulate:loopback")
+        }
+    }
+
+    @Test
+    fun requireValidNativeCommandAcceptsFailCommand() {
+        assertEquals("fail:timeout", requireValidNativeCommand("fail:timeout"))
+    }
+
+    @Test
+    fun requireValidNativeCommandRejectsMissingFailSeparator() {
+        assertThrows(IllegalArgumentException::class.java) {
+            requireValidNativeCommand("fail")
         }
     }
 }
