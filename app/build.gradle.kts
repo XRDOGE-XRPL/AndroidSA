@@ -1,9 +1,42 @@
-plugins {
-    id("com.android.application") version "8.5.2"
-    id("org.jetbrains.kotlin.android") version "1.9.24"
+import com.android.build.api.dsl.ApplicationExtension
+import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
+
+buildscript {
+    val androidSaGoogleMavenUrl = project.findProperty("androidsa.google.maven.url") as String?
+        ?: System.getenv("ANDROIDSA_GOOGLE_MAVEN_URL")
+    repositories {
+        if (androidSaGoogleMavenUrl.isNullOrBlank()) {
+            google {
+                content {
+                    includeGroupByRegex("androidx.*")
+                    includeGroupByRegex("com\\.android.*")
+                    includeGroupByRegex("com\\.google.*")
+                }
+            }
+        } else {
+            maven(url = uri(androidSaGoogleMavenUrl)) {
+                name = "AndroidSaGoogleMirror"
+                isAllowInsecureProtocol = androidSaGoogleMavenUrl.startsWith("http://")
+                content {
+                    includeGroupByRegex("androidx.*")
+                    includeGroupByRegex("com\\.android.*")
+                    includeGroupByRegex("com\\.google.*")
+                }
+            }
+        }
+        mavenCentral()
+        gradlePluginPortal()
+    }
+    dependencies {
+        classpath("com.android.tools.build:gradle:8.5.2")
+        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.24")
+    }
 }
 
-android {
+apply(plugin = "com.android.application")
+apply(plugin = "org.jetbrains.kotlin.android")
+
+extensions.configure<ApplicationExtension>("android") {
     namespace = "com.xrdoge.xrpl.androidsa"
     compileSdk = 34
     ndkVersion = "27.3.13750724"
@@ -40,10 +73,6 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
-    kotlinOptions {
-        jvmTarget = "17"
-    }
-
     buildFeatures {
         compose = true
     }
@@ -69,14 +98,18 @@ android {
 dependencies {
     val composeBom = platform("androidx.compose:compose-bom:2024.06.00")
 
-    implementation(composeBom)
-    androidTestImplementation(composeBom)
+    add("implementation", composeBom)
+    add("androidTestImplementation", composeBom)
 
-    implementation("androidx.core:core-ktx:1.13.1")
-    implementation("androidx.activity:activity-compose:1.9.0")
-    implementation("androidx.compose.material3:material3")
-    implementation("androidx.compose.ui:ui")
-    implementation("androidx.compose.ui:ui-tooling-preview")
+    add("implementation", "androidx.core:core-ktx:1.13.1")
+    add("implementation", "androidx.activity:activity-compose:1.9.0")
+    add("implementation", "androidx.compose.material3:material3")
+    add("implementation", "androidx.compose.ui:ui")
+    add("implementation", "androidx.compose.ui:ui-tooling-preview")
 
-    testImplementation("junit:junit:4.13.2")
+    add("testImplementation", "junit:junit:4.13.2")
+}
+
+tasks.withType<KotlinCompile>().configureEach {
+    kotlinOptions.jvmTarget = "17"
 }
