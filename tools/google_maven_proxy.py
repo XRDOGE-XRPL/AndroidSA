@@ -200,9 +200,7 @@ class MavenMirrorIndex:
                 temp_path.unlink(missing_ok=True)
                 raise
 
-        if metadata is None and self._download_from_google_maven(request_path, artifact_path):
-            return artifact_path
-        if metadata is not None and self._download_from_google_maven(request_path, artifact_path):
+        if self._download_from_google_maven(request_path, artifact_path):
             return artifact_path
 
         return None
