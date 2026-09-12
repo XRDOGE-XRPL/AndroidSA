@@ -36,6 +36,7 @@ Die Command-Eingabe wird vor dem JNI-Aufruf validiert:
 - maximal 64 Zeichen
 - keine Steuerzeichen
 - kein `|`
+- `connect` verbindet mit dem aktuell gespeicherten Serverprofil
 - für Transportwechsel exakt `transport:<value>`
 - für Serverwechsel exakt `connect:<server>`
 - für Spielerwechsel exakt `player:<name>`

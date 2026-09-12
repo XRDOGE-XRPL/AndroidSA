@@ -59,7 +59,7 @@ Der Native-State liefert eine erweiterte Summary inklusive:
 - Paket-Zähler (TX/RX)
 - Anzahl der Verbindungsversuche
 - letzter erfolgreicher Command
-- begrenzter Event-Historie für Debug-Ausgaben
+- begrenzte Event-Historie für Debug-Ausgaben
 
 ## Build-Hinweise
 

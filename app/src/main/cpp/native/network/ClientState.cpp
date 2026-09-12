@@ -105,6 +105,7 @@ void ClientState::resetLocked() {
     packetsSent_ = 0;
     packetsReceived_ = 0;
     connectionAttempts_ = 0;
+    lastCommand_ = "startup";
     eventLog_.clear();
 }
 

@@ -236,11 +236,16 @@ private fun AndroidSAApp() {
                     enabled = !isBusy,
                     singleLine = true,
                 )
-                Button(
-                    enabled = !isBusy && serverAddressText.isNotBlank(),
-                    onClick = { dispatchPreset("connect:${serverAddressText.trim()}") },
-                ) {
-                    Text("Connect to server")
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    ActionButton(label = "Connect current", enabled = !isBusy) {
+                        dispatchPreset("connect")
+                    }
+                    ActionButton(
+                        label = "Connect custom",
+                        enabled = !isBusy && serverAddressText.isNotBlank(),
+                    ) {
+                        dispatchPreset("connect:${serverAddressText.trim()}")
+                    }
                 }
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     ActionButton(label = "Reconnect", enabled = !isBusy) {
