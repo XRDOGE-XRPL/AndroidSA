@@ -251,65 +251,24 @@ class MavenMirrorIndex:
 
     @staticmethod
     def _patch_agp_plugin_jar(path: Path) -> None:
-        plugin_path = "com/android/build/gradle/AppPlugin.class"
-        delegate_path = "com/android/build/gradle/internal/plugins/AppPlugin.class"
+        marker_path = "META-INF/gradle-plugins/com.android.application.properties"
+        marker_contents = "implementation-class=com.android.build.gradle.internal.plugins.AppPlugin\n"
 
         with zipfile.ZipFile(path) as archive:
             names = set(archive.namelist())
-            if plugin_path in names or delegate_path not in names:
+            if marker_path not in names:
+                return
+            current_contents = archive.read(marker_path)
+            if current_contents == marker_contents.encode("utf-8"):
                 return
 
-        javac = shutil.which("javac")
-        if javac is None:
-            raise RuntimeError("javac is required to patch the Android Gradle plugin jar")
-
-        gradle_jars = sorted(
-            jar
-            for lib_root in (Path.home() / ".gradle" / "wrapper" / "dists").glob("**/gradle-*/lib")
-            for jar in lib_root.rglob("*.jar")
-        )
-        if not gradle_jars:
-            raise RuntimeError("Gradle distribution jars are required to patch the Android Gradle plugin jar")
-        compile_classpath = os.pathsep.join([str(path), *(str(jar) for jar in gradle_jars)])
-
         with tempfile.TemporaryDirectory(prefix="androidsa-agp-patch-") as temp_dir:
-            temp_root = Path(temp_dir)
-            source_dir = temp_root / "src" / "com" / "android" / "build" / "gradle"
-            source_dir.mkdir(parents=True, exist_ok=True)
-            source_file = source_dir / "AppPlugin.java"
-            source_file.write_text(
-                """
-package com.android.build.gradle;
-
-public class AppPlugin extends com.android.build.gradle.internal.plugins.AppPlugin {
-    public AppPlugin(
-            org.gradle.tooling.provider.model.ToolingModelBuilderRegistry registry,
-            org.gradle.api.component.SoftwareComponentFactory softwareComponentFactory,
-            org.gradle.build.event.BuildEventsListenerRegistry buildEventsListenerRegistry,
-            org.gradle.api.configuration.BuildFeatures buildFeatures) {
-        super(registry, softwareComponentFactory, buildEventsListenerRegistry, buildFeatures);
-    }
-}
-""".strip()
-                + "\n",
-                encoding="utf-8",
-            )
-            classes_dir = temp_root / "classes"
-            classes_dir.mkdir(parents=True, exist_ok=True)
-            subprocess.run(
-                [
-                    javac,
-                    "-cp",
-                    compile_classpath,
-                    "-d",
-                    str(classes_dir),
-                    str(source_file),
-                ],
-                check=True,
-            )
-            compiled_class = classes_dir / plugin_path
-            with zipfile.ZipFile(path, "a") as archive:
-                archive.write(compiled_class, plugin_path)
+            patched_path = Path(temp_dir) / "gradle-patched.jar"
+            with zipfile.ZipFile(path) as source, zipfile.ZipFile(patched_path, "w") as patched:
+                for entry in source.infolist():
+                    data = marker_contents.encode("utf-8") if entry.filename == marker_path else source.read(entry.filename)
+                    patched.writestr(entry, data)
+            shutil.copyfile(patched_path, path)
 
     @staticmethod
     def _safe_extractall(archive: tarfile.TarFile, destination: Path) -> None:
