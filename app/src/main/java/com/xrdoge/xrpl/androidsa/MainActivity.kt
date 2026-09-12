@@ -8,9 +8,13 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -20,10 +24,13 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -59,11 +66,24 @@ class MainActivity : ComponentActivity() {
 @Composable
 private fun AndroidSAApp() {
     var overview by remember { mutableStateOf(InitialOverview) }
+    var commandText by remember { mutableStateOf("ping") }
+    var isLoading by remember { mutableStateOf(false) }
+    var commandJob by remember { mutableStateOf<Job?>(null) }
     val scope = rememberCoroutineScope()
+    val commandError = remember(commandText) {
+        runCatching {
+            requireValidNativeCommand(commandText)
+        }.exceptionOrNull()?.message
+    }
 
     LaunchedEffect(Unit) {
-        overview = withContext(Dispatchers.IO) {
-            loadOverviewSafely { NativeBridge.overview() }
+        try {
+            isLoading = true
+            overview = withContext(Dispatchers.IO) {
+                loadOverviewSafely { NativeBridge.overview() }
+            }
+        } finally {
+            isLoading = false
         }
     }
 
@@ -87,24 +107,71 @@ private fun AndroidSAApp() {
             OverviewCard(title = "Transport", value = overview.transport)
             OverviewCard(title = "Connection", value = overview.connectionState)
             OverviewCard(title = "Diagnostics", value = overview.diagnostics)
+            OutlinedTextField(
+                value = commandText,
+                onValueChange = { commandText = it },
+                label = { Text("Native command") },
+                supportingText = {
+                    Text(commandError ?: "Examples: ping, connect, disconnect, reset, transport:udp")
+                },
+                modifier = Modifier.fillMaxWidth(),
+                enabled = !isLoading,
+                isError = commandError != null,
+                singleLine = true,
+            )
             Button(
+                enabled = !isLoading && commandError == null,
                 onClick = {
-                    val currentOverview = overview
-                    scope.launch {
-                        overview = withContext(Dispatchers.IO) {
-                            loadOverviewSafely {
-                                NativeBridge.refresh().recover {
-                                    currentOverview.copy(
-                                        connectionState = "error",
-                                        diagnostics = it.message ?: "Native command failed",
-                                    )
-                                }
+                    if (isLoading || commandJob?.isActive == true) {
+                        return@Button
+                    }
+
+                    val commandToDispatch = commandText
+                    isLoading = true
+                    val launchedJob = scope.launch {
+                        try {
+                            val result = withContext(Dispatchers.IO) {
+                                NativeBridge.refresh(commandToDispatch)
+                            }
+                            overview = result.getOrElse {
+                                overview.copy(
+                                    connectionState = "error",
+                                    diagnostics = it.message ?: "Native command failed",
+                                )
+                            }
+                        } catch (error: Exception) {
+                            if (error is CancellationException) {
+                                throw error
+                            }
+                            overview = overview.copy(
+                                connectionState = "error",
+                                diagnostics = error.message ?: "Native command failed",
+                            )
+                        } finally {
+                            val finishingJob = coroutineContext[Job]
+                            if (commandJob === finishingJob) {
+                                isLoading = false
+                                commandJob = null
                             }
                         }
                     }
+                    commandJob = launchedJob
                 },
             ) {
-                Text("Refresh native state")
+                if (isLoading) {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(18.dp),
+                            strokeWidth = 2.dp,
+                        )
+                        Text("Send native command")
+                    }
+                } else {
+                    Text("Send native command")
+                }
             }
         }
     }
