@@ -11,6 +11,7 @@ AndroidSA ist eine Android-Basis für einen SA:MP / Open:MP-orientierten Client 
 - [Schnellstart](#schnellstart)
 - [Build- und Testbefehle](#build--und-testbefehle)
 - [Native Command-Spezifikation](#native-command-spezifikation)
+- [Erweiterter Laufzeitstatus](#erweiterter-laufzeitstatus)
 - [UI- und Laufzeitverhalten](#ui--und-laufzeitverhalten)
 - [CI](#ci)
 - [Release-Management](#release-management)
@@ -30,8 +31,10 @@ Das Projekt stellt ein erweiterbares Grundgerüst bereit, um Multiplayer-Logik a
   - Client-Name
   - aktiven Transport
   - Verbindungszustand
-  - Diagnostik-Text
-- Eingabefeld + Button senden native Commands über die Bridge.
+  - Server- und Spielerprofil
+  - Laufzeitstatistiken
+  - Diagnose- und Event-Ansicht
+- Geführte Eingaben + Buttons senden native Commands über die Bridge.
 
 ### Layer 2 – Kotlin/JNI-Bridge
 
@@ -39,7 +42,8 @@ Das Projekt stellt ein erweiterbares Grundgerüst bereit, um Multiplayer-Logik a
 - Aufgaben:
   - Laden der nativen Bibliothek `androidsa`
   - Validierung von Commands vor JNI-Dispatch
-  - Parsen der nativen Summary (`client|transport|state|diagnostics`)
+  - Parsen der nativen Summary
+  - Parsen der nativen Event-Historie in einen gemeinsamen Snapshot
 
 ### Layer 3 – Native C++20-Laufzeit
 
@@ -101,12 +105,18 @@ Hinweis: Das Root-Projekt verdrahtet `build` und `check` auf `:app:build` bzw. `
 ### Unterstützte Commands
 
 - `ping` → Zustand wird `ready`
-- `connect` → Zustand wird `connected`
+- `connect` → verbindet mit dem aktuell gespeicherten Serverprofil
+- `connect:<server>` → setzt Serverprofil und verbindet direkt
+- `reconnect` → erneuter Verbindungsaufbau zum gespeicherten Server
 - `disconnect` → Zustand wird `disconnected`
-- `reset` → Transport/Zustand/Diagnostik auf Initialwerte
+- `reset` → Transport/Zustand/Statistiken/Event-Historie auf Initialwerte
 - `status` → erzeugt einen Diagnose-Snapshot ohne Zustandswechsel
 - `transport:<name>` → aktiven Transport wechseln
+- `player:<name>` → aktives Spielerprofil setzen
+- `latency:<ms>` → Latenz zu Testzwecken überschreiben
+- `simulate:rx` / `simulate:tx` → eingehenden bzw. ausgehenden Traffic simulieren
 - `diagnostics:<text>` → setzt eine manuelle Diagnostikmeldung
+- `fail:<reason>` → simuliert einen Fehlerzustand
 
 ### Validierungsregeln (Kotlin + Native)
 
@@ -114,31 +124,39 @@ Hinweis: Das Root-Projekt verdrahtet `build` und `check` auf `:app:build` bzw. `
 - Maximale Länge: 64 Zeichen.
 - Keine Steuerzeichen erlaubt.
 - Zeichen `|` ist verboten (Schutz des Summary-Formats).
-- `transport`-Syntax muss exakt `transport:<value>` sein:
-  - Keyword ist case-insensitive
-  - kein Leerzeichen vor `:`
-  - Wert nach `:` darf nicht leer sein
-- `diagnostics`-Syntax muss exakt `diagnostics:<value>` sein:
-  - Keyword ist case-insensitive
-  - kein Leerzeichen vor `:`
-  - Wert nach `:` darf nicht leer sein
+- `transport`, `connect:<server>`, `player:<name>`, `latency:<ms>`, `simulate:<value>` und `fail:<reason>` nutzen exakte `keyword:<value>`-Syntax ohne Leerzeichen vor `:`.
+- `diagnostics:<value>` nutzt exakte `keyword:<value>`-Syntax ohne Leerzeichen vor `:`.
+- `simulate` akzeptiert nur `rx` oder `tx`.
+- `latency` akzeptiert nur nicht-negative Integerwerte.
 
 ### Summary-Format aus Native Layer
 
-Die native Summary wird als Pipe-separierter String geliefert:
+Die native Summary wird als Pipe-separierter String mit erweiterten Feldern geliefert:
 
 ```text
-AndroidSA|<transport>|<state>|<diagnostics>
+AndroidSA|<transport>|<state>|<diagnostics>|<server>|<player>|<latencyMs>|<packetsSent>|<packetsReceived>|<connectionAttempts>|<lastCommand>
 ```
 
-Die Kotlin-Seite nutzt Fallbacks für fehlende/leere Segmente.
-`<diagnostics>` darf selbst kein `|` enthalten, damit das 4-Felder-Format stabil bleibt.
+Die Kotlin-Seite nutzt Fallbacks für fehlende/leere Segmente und setzt ungültige Zahlenfelder auf `0` zurück.
+
+## Erweiterter Laufzeitstatus
+
+Der Native-State hält zusätzlich zu Transport, State und Diagnostics nun fest:
+
+- aktives Serverprofil
+- Spielerprofil
+- Latenz
+- gesendete und empfangene Paket-Zähler
+- Anzahl der Verbindungsversuche
+- zuletzt akzeptierter Command
+- begrenzte Event-Historie für UI und Debugging
 
 ## UI- und Laufzeitverhalten
 
-- Beim App-Start wird der native Zustand asynchron geladen.
-- Während laufender Operationen ist die Command-Eingabe deaktiviert.
-- Fehler aus Bridge/Native werden im Diagnostics-Feld angezeigt.
+- Beim App-Start wird ein kompletter Snapshot aus Summary + Event-Historie asynchron geladen.
+- Die UI zeigt getrennte Bereiche für Session-Überblick, Laufzeitstatistiken, geführte Controls, manuelle Commands und Events.
+- Während laufender Operationen sind Eingaben und Buttons deaktiviert.
+- Fehler aus Bridge/Native werden im Diagnostics-Feld und in der Event-Liste sichtbar.
 - Command-Ausführung ist gegen paralleles Mehrfach-Dispatch abgesichert.
 
 ## CI
@@ -175,7 +193,7 @@ Zusätzlich werden Testreports als CI-Artefakt hochgeladen.
 - **Gradle/Plugin kann nicht aufgelöst werden:** Netzwerkzugriff auf Google Maven prüfen.
 - **NDK/CMake-Probleme:** installierte Versionen mit `app/build.gradle.kts` abgleichen.
 - **JNI-Library lädt nicht:** sicherstellen, dass `androidsa` erfolgreich gebaut wurde.
-- **Command wird abgelehnt:** auf Syntax (`transport:<value>`/`diagnostics:<value>`), Länge und verbotene Zeichen prüfen.
+- **Command wird abgelehnt:** auf Syntax (`transport:<value>`, `player:<value>`, `latency:<ms>`, `diagnostics:<value>`), Länge und verbotene Zeichen prüfen.
 
 ## Lizenz
 
