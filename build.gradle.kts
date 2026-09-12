@@ -1,28 +1,3 @@
-buildscript {
-    repositories {
-        val androidSaGoogleMavenUrl = findProperty("androidsa.google.maven.url") as String?
-            ?: System.getenv("ANDROIDSA_GOOGLE_MAVEN_URL")
-        if (androidSaGoogleMavenUrl.isNullOrBlank()) {
-            google()
-        } else {
-            maven(url = uri(androidSaGoogleMavenUrl)) {
-                name = "AndroidSaGoogleMirror"
-                isAllowInsecureProtocol = androidSaGoogleMavenUrl.startsWith("http://")
-                content {
-                    includeGroupByRegex("androidx.*")
-                    includeGroupByRegex("com\\.android.*")
-                    includeGroupByRegex("com\\.google.*")
-                }
-            }
-        }
-        mavenCentral()
-    }
-    dependencies {
-        classpath("com.android.tools.build:gradle:8.5.2")
-        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.24")
-    }
-}
-
 plugins {
     base
 }

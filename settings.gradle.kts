@@ -25,6 +25,19 @@ pluginManagement {
         mavenCentral()
         gradlePluginPortal()
     }
+    resolutionStrategy {
+        eachPlugin {
+            val pluginVersion = requested.version ?: return@eachPlugin
+            when (requested.id.id) {
+                "com.android.application" -> {
+                    useModule("com.android.tools.build:gradle:$pluginVersion")
+                }
+                "org.jetbrains.kotlin.android" -> {
+                    useModule("org.jetbrains.kotlin:kotlin-gradle-plugin:$pluginVersion")
+                }
+            }
+        }
+    }
 }
 
 dependencyResolutionManagement {

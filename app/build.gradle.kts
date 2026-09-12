@@ -1,10 +1,9 @@
-import com.android.build.api.dsl.ApplicationExtension
-import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
+plugins {
+    id("com.android.application") version "8.5.2"
+    id("org.jetbrains.kotlin.android") version "1.9.24"
+}
 
-apply(plugin = "com.android.application")
-apply(plugin = "org.jetbrains.kotlin.android")
-
-configure<ApplicationExtension> {
+android {
     namespace = "com.xrdoge.xrpl.androidsa"
     compileSdk = 34
     ndkVersion = "27.3.13750724"
@@ -41,6 +40,10 @@ configure<ApplicationExtension> {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
+    kotlinOptions {
+        jvmTarget = "17"
+    }
+
     buildFeatures {
         compose = true
     }
@@ -60,12 +63,6 @@ configure<ApplicationExtension> {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
         }
-    }
-}
-
-tasks.withType<KotlinCompile>().configureEach {
-    kotlinOptions {
-        jvmTarget = "17"
     }
 }
 
