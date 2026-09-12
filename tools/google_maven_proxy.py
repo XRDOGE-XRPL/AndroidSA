@@ -192,10 +192,17 @@ class MavenMirrorIndex:
                 self._download_to_file(donor.file_url(remote_path, binary=binary), temp_path)
                 os.replace(temp_path, artifact_path)
                 return artifact_path
+            except HTTPError as exc:
+                temp_path.unlink(missing_ok=True)
+                if exc.code != HTTPStatus.NOT_FOUND:
+                    raise
             except Exception:
                 temp_path.unlink(missing_ok=True)
+                raise
 
-        if self._download_from_google_maven(request_path, artifact_path):
+        if metadata is None and self._download_from_google_maven(request_path, artifact_path):
+            return artifact_path
+        if metadata is not None and self._download_from_google_maven(request_path, artifact_path):
             return artifact_path
 
         return None
