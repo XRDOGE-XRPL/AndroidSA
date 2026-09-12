@@ -43,10 +43,14 @@ int main() {
         return 1;
     }
 
-    if (!expect(!state.dispatchCommand("diagnosticsok"), "Missing diagnostics separator should fail")) {
+    if (!expect(state.dispatchCommand("diagnosticsok"), "Diagnostics-prefixed generic command should remain accepted")) {
         return 1;
     }
-    if (!expect(!state.dispatchCommand("diagnostics foo:bar"), "Diagnostics keyword tail should fail")) {
+    const auto genericDiagnosticsSummary = parseSummary(state.summary());
+    if (!expect(genericDiagnosticsSummary[3] == "Last JNI command: diagnosticsok", "Generic diagnostics-prefixed command should fall back to generic handler")) {
+        return 1;
+    }
+    if (!expect(state.dispatchCommand("diagnostics foo:bar"), "Diagnostics keyword-tail generic command should remain accepted")) {
         return 1;
     }
     if (!expect(!state.dispatchCommand("diagnostics:   "), "Blank diagnostics value should fail")) {

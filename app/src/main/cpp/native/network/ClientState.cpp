@@ -94,7 +94,7 @@ bool ClientState::dispatchCommand(const std::string& command) {
         transport_ = transport;
         state_ = "ready";
         diagnostics_ = "Transport switched to " + transport;
-    } else if (startsWith(normalized, "diagnostics")) {
+    } else if (normalized == "diagnostics" || startsWith(normalized, "diagnostics:")) {
         if (transportSeparator == std::string::npos) {
             return false;
         }

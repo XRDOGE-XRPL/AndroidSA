@@ -9,7 +9,6 @@ data class NativeOverview(
 
 internal const val MaxNativeCommandLength = 64
 private const val NativeSummaryDelimiter = '|'
-private val ValueRequiredCommands = listOf("transport", "diagnostics")
 
 internal fun requireValidNativeCommand(command: String): String {
     val sanitized = command.trim()
@@ -25,23 +24,23 @@ internal fun requireValidNativeCommand(command: String): String {
     }
 
     val normalized = sanitized.lowercase()
-    ValueRequiredCommands.forEach { commandKeyword ->
-        if (!normalized.startsWith(commandKeyword)) {
-            return@forEach
-        }
-
+    if (normalized.startsWith("transport")) {
         val separatorIndex = normalized.indexOf(':')
-        require(separatorIndex != -1) {
-            "${commandKeyword.replaceFirstChar(Char::uppercase)} command must include ':' separator"
-        }
-        val keywordTail = normalized.substring(commandKeyword.length, separatorIndex)
-        require(keywordTail.isEmpty()) {
-            "${commandKeyword.replaceFirstChar(Char::uppercase)} command keyword is invalid"
-        }
-        val commandValue = sanitized.substring(separatorIndex + 1).trim()
-        require(commandValue.isNotEmpty()) {
-            "${commandKeyword.replaceFirstChar(Char::uppercase)} command value must not be blank"
-        }
+        require(separatorIndex != -1) { "Transport command must include ':' separator" }
+        val keywordTail = normalized.substring("transport".length, separatorIndex)
+        require(keywordTail.isEmpty()) { "Transport command keyword is invalid" }
+        val transportValue = sanitized.substring(separatorIndex + 1).trim()
+        require(transportValue.isNotEmpty()) { "Transport command value must not be blank" }
+    }
+
+    val isDiagnosticsCommand = normalized == "diagnostics" || normalized.startsWith("diagnostics:")
+    if (isDiagnosticsCommand) {
+        val separatorIndex = normalized.indexOf(':')
+        require(separatorIndex != -1) { "Diagnostics command must include ':' separator" }
+        val keywordTail = normalized.substring("diagnostics".length, separatorIndex)
+        require(keywordTail.isEmpty()) { "Diagnostics command keyword is invalid" }
+        val diagnosticsValue = sanitized.substring(separatorIndex + 1).trim()
+        require(diagnosticsValue.isNotEmpty()) { "Diagnostics command value must not be blank" }
     }
     return sanitized
 }

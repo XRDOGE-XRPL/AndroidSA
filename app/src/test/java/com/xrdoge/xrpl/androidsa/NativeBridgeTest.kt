@@ -129,15 +129,13 @@ class NativeBridgeTest {
     @Test
     fun requireValidNativeCommandRejectsMissingDiagnosticsSeparator() {
         assertThrows(IllegalArgumentException::class.java) {
-            requireValidNativeCommand("diagnosticsok")
+            requireValidNativeCommand("diagnostics")
         }
     }
 
     @Test
-    fun requireValidNativeCommandRejectsDiagnosticsKeywordTail() {
-        assertThrows(IllegalArgumentException::class.java) {
-            requireValidNativeCommand("diagnostics foo:bar")
-        }
+    fun requireValidNativeCommandAcceptsDiagnosticsPrefixedGenericCommand() {
+        assertEquals("diagnosticsok", requireValidNativeCommand("diagnosticsok"))
     }
 
     @Test
