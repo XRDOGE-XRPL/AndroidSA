@@ -8,11 +8,18 @@ namespace androidsa::network {
 
 class ClientState {
 public:
+    ~ClientState();
+
     std::string summary();
     std::vector<std::string> recentEvents();
     bool dispatchCommand(const std::string& command);
 
 private:
+    bool ensureUdpRuntimeLocked(const std::string& serverAddress);
+    int sendUdpProbeLocked(const std::vector<unsigned char>& payload);
+    int receiveUdpProbeLocked();
+    void closeUdpRuntimeLocked();
+    std::string parseRakNetLikePacket(const std::vector<unsigned char>& payload) const;
     void resetLocked();
     void recordEventLocked(const std::string& event);
 
@@ -28,6 +35,8 @@ private:
     int connectionAttempts_ = 0;
     std::string lastCommand_ = "startup";
     std::vector<std::string> eventLog_ = {"Native runtime bootstrapped"};
+    int udpSocketFd_ = -1;
+    bool udpRuntimeReady_ = false;
 };
 
 }  // namespace androidsa::network

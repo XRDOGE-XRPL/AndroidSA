@@ -25,6 +25,8 @@ jobs:
     name: Complete Background Build
     runs-on: ubuntu-latest
     timeout-minutes: 60
+    env:
+      GRADLE_OPTS: -Dorg.gradle.internal.http.connectionTimeout=120000 -Dorg.gradle.internal.http.socketTimeout=120000
 
     steps:
       - name: Checkout repository
@@ -48,17 +50,48 @@ jobs:
       - name: Prepare Gradle wrapper
         run: chmod +x ./gradlew
 
+      - name: Warm Gradle plugin and dependency resolution (retry)
+        run: |
+          for attempt in 1 2 3; do
+            ./gradlew --no-daemon help --stacktrace --refresh-dependencies && break
+            if [ "$attempt" -eq 3 ]; then
+              echo "Gradle dependency warmup failed after 3 attempts"
+              exit 1
+            fi
+            echo "Warmup failed (attempt $attempt), retrying..."
+            sleep 10
+          done
+
       - name: Run native host tests
         run: |
           cmake -S app/src/main/cpp -B /tmp/androidsa-native-tests -DANDROIDSA_ENABLE_NATIVE_TESTS=ON
           cmake --build /tmp/androidsa-native-tests --target client_state_test
           ctest --test-dir /tmp/androidsa-native-tests --output-on-failure
 
-      - name: Run unit tests
-        run: ./gradlew --no-daemon :app:testDebugUnitTest --stacktrace
+      - name: Run unit tests (retry)
+        run: |
+          for attempt in 1 2; do
+            ./gradlew --no-daemon :app:testDebugUnitTest --stacktrace && break
+            if [ "$attempt" -eq 2 ]; then
+              echo "Unit tests failed after retry"
+              exit 1
+            fi
+            echo "Unit tests failed (attempt $attempt), retrying with refreshed dependencies..."
+            ./gradlew --no-daemon help --stacktrace --refresh-dependencies
+            sleep 5
+          done
 
-      - name: Assemble app artifacts
-        run: ./gradlew --no-daemon :app:assemble --stacktrace
+      - name: Assemble app artifacts (retry)
+        run: |
+          for attempt in 1 2; do
+            ./gradlew --no-daemon :app:assemble --stacktrace && break
+            if [ "$attempt" -eq 2 ]; then
+              echo "Assemble failed after retry"
+              exit 1
+            fi
+            echo "Assemble failed (attempt $attempt), retrying with refreshed dependencies..."
+            ./gradlew --no-daemon :app:assemble --stacktrace --refresh-dependencies
+          done
 
       - name: Upload test reports
         if: always()

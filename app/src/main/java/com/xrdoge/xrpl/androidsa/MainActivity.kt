@@ -34,10 +34,23 @@ import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.withContext
 
 private const val MaxUiRecentEvents = 12
+
+private data class ServerProfile(
+    val id: String,
+    val label: String,
+    val host: String,
+    val port: Int,
+    val lastLatencyMs: Int? = null,
+    val lastState: String = "unknown",
+)
+
+private fun serverEndpoint(profile: ServerProfile): String = "${profile.host}:${profile.port}"
 
 private val InitialOverview = NativeOverview(
     clientName = "AndroidSA",
@@ -56,6 +69,11 @@ private val InitialOverview = NativeOverview(
 private val InitialSnapshot = NativeClientSnapshot(
     overview = InitialOverview,
     recentEvents = listOf("Loading native event log"),
+)
+
+private val DefaultServerProfiles = listOf(
+    ServerProfile(id = "default-demo", label = "Demo EU", host = "demo.sa-mp.local", port = 7777),
+    ServerProfile(id = "default-dev", label = "Local Dev", host = "127.0.0.1", port = 7777),
 )
 
 private fun nativeErrorSnapshot(message: String) = NativeClientSnapshot(
@@ -92,24 +110,38 @@ private fun AndroidSAApp() {
     var transportText by remember { mutableStateOf("RakNet-compatible UDP") }
     var diagnosticsText by remember { mutableStateOf("Ready for manual diagnostics") }
     var latencyText by remember { mutableStateOf("48") }
+    var serverProfiles by remember { mutableStateOf(DefaultServerProfiles) }
+    var selectedServerProfileId by remember { mutableStateOf(DefaultServerProfiles.first().id) }
+    var newServerLabel by remember { mutableStateOf("Custom") }
+    var newServerHost by remember { mutableStateOf("127.0.0.1") }
+    var newServerPort by remember { mutableStateOf("7777") }
     var isLoading by remember { mutableStateOf(false) }
     var commandJob by remember { mutableStateOf<Job?>(null) }
+    var commandInFlight by remember { mutableStateOf<String?>(null) }
+    val commandMutex = remember { Mutex() }
     val scope = rememberCoroutineScope()
     val overview = snapshot.overview
-    val isBusy = isLoading || commandJob?.isActive == true
+    val isBusy = isLoading || commandJob?.isActive == true || commandInFlight != null
     val commandError = remember(commandText) {
         runCatching {
             requireValidNativeCommand(commandText)
         }.exceptionOrNull()?.message
     }
+    val newServerPortValue = newServerPort.trim().toIntOrNull()
+    val canAddServerProfile = newServerHost.isNotBlank() &&
+        newServerLabel.isNotBlank() &&
+        newServerPortValue != null &&
+        newServerPortValue in 1..65535
 
-    fun applySnapshot(newSnapshot: NativeClientSnapshot) {
+    fun applySnapshot(newSnapshot: NativeClientSnapshot, syncInputs: Boolean = true) {
         snapshot = newSnapshot
-        serverAddressText = newSnapshot.overview.serverAddress
-        playerNameText = newSnapshot.overview.playerName
-        transportText = newSnapshot.overview.transport
-        diagnosticsText = newSnapshot.overview.diagnostics
-        latencyText = newSnapshot.overview.latencyMs.toString()
+        if (syncInputs) {
+            serverAddressText = newSnapshot.overview.serverAddress
+            playerNameText = newSnapshot.overview.playerName
+            transportText = newSnapshot.overview.transport
+            diagnosticsText = newSnapshot.overview.diagnostics
+            latencyText = newSnapshot.overview.latencyMs.toString()
+        }
     }
 
     fun applyLocalError(message: String) {
@@ -121,22 +153,41 @@ private fun AndroidSAApp() {
                 ),
                 recentEvents = (listOf(message) + snapshot.recentEvents).take(MaxUiRecentEvents),
             ),
+            syncInputs = false,
         )
     }
 
+    fun trackServerMetricFromSnapshot(snapshotToTrack: NativeClientSnapshot) {
+        val activeAddress = snapshotToTrack.overview.serverAddress
+        val activeIndex = serverProfiles.indexOfFirst { serverEndpoint(it) == activeAddress }
+        if (activeIndex == -1) {
+            return
+        }
+        val current = serverProfiles[activeIndex]
+        val updated = current.copy(
+            lastLatencyMs = snapshotToTrack.overview.latencyMs,
+            lastState = snapshotToTrack.overview.connectionState,
+        )
+        if (updated != current) {
+            serverProfiles = serverProfiles.toMutableList().also { it[activeIndex] = updated }
+        }
+    }
+
     val dispatchCommand: (String) -> Unit = dispatch@{ commandToDispatch ->
-        if (isBusy) {
+        if (isBusy || !commandMutex.tryLock()) {
             return@dispatch
         }
 
         val sanitizedCommand = runCatching {
             requireValidNativeCommand(commandToDispatch)
         }.getOrElse { validationError ->
+            commandMutex.unlock()
             applyLocalError(validationError.message ?: "Native command validation failed")
             return@dispatch
         }
 
         isLoading = true
+        commandInFlight = sanitizedCommand
         val launchedJob = scope.launch {
             try {
                 val result = withContext(Dispatchers.IO) {
@@ -147,7 +198,9 @@ private fun AndroidSAApp() {
                         applyLocalError(it.message ?: "Native command failed")
                         return@getOrElse snapshot
                     },
+                    syncInputs = true,
                 )
+                trackServerMetricFromSnapshot(snapshot)
             } catch (error: Exception) {
                 if (error is CancellationException) {
                     throw error
@@ -157,7 +210,11 @@ private fun AndroidSAApp() {
                 val finishingJob = coroutineContext[Job]
                 if (commandJob === finishingJob) {
                     isLoading = false
+                    commandInFlight = null
                     commandJob = null
+                }
+                if (commandMutex.isLocked) {
+                    commandMutex.unlock()
                 }
             }
         }
@@ -169,6 +226,16 @@ private fun AndroidSAApp() {
         dispatchCommand(command)
     }
 
+    fun dispatchServerProfile(profile: ServerProfile, pingOnly: Boolean) {
+        selectedServerProfileId = profile.id
+        serverAddressText = serverEndpoint(profile)
+        if (pingOnly) {
+            dispatchPreset("connect:${serverEndpoint(profile)}")
+            return
+        }
+        dispatchPreset("connect:${serverEndpoint(profile)}")
+    }
+
     LaunchedEffect(Unit) {
         try {
             isLoading = true
@@ -177,8 +244,29 @@ private fun AndroidSAApp() {
                     loadSnapshotSafely { NativeBridge.snapshot() }
                 },
             )
+            trackServerMetricFromSnapshot(snapshot)
         } finally {
             isLoading = false
+        }
+    }
+
+    val shouldAutoRefreshMetrics = overview.connectionState.equals("connected", ignoreCase = true)
+    LaunchedEffect(shouldAutoRefreshMetrics) {
+        if (!shouldAutoRefreshMetrics) {
+            return@LaunchedEffect
+        }
+        while (true) {
+            delay(1000)
+            if (isBusy) {
+                continue
+            }
+            applySnapshot(
+                withContext(Dispatchers.IO) {
+                    loadSnapshotSafely { NativeBridge.snapshot() }
+                },
+                syncInputs = false,
+            )
+            trackServerMetricFromSnapshot(snapshot)
         }
     }
 
@@ -213,8 +301,102 @@ private fun AndroidSAApp() {
                 OverviewValueRow(title = "Packets received", value = overview.packetsReceived.toString())
                 OverviewValueRow(title = "Reconnect attempts", value = overview.connectionAttempts.toString())
                 OverviewValueRow(title = "Last command", value = overview.lastCommand)
+                OverviewValueRow(title = "Active operation", value = commandInFlight ?: "idle")
             }
             SectionCard(title = "Guided controls") {
+                SectionCard(title = "Server browser") {
+                    OutlinedTextField(
+                        value = newServerLabel,
+                        onValueChange = { newServerLabel = it },
+                        label = { Text("Profile label") },
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = !isBusy,
+                        singleLine = true,
+                    )
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedTextField(
+                            value = newServerHost,
+                            onValueChange = { newServerHost = it },
+                            label = { Text("Host/IP") },
+                            modifier = Modifier.weight(2f),
+                            enabled = !isBusy,
+                            singleLine = true,
+                        )
+                        OutlinedTextField(
+                            value = newServerPort,
+                            onValueChange = { newServerPort = it },
+                            label = { Text("Port") },
+                            modifier = Modifier.weight(1f),
+                            enabled = !isBusy,
+                            singleLine = true,
+                        )
+                    }
+                    Button(
+                        enabled = !isBusy && canAddServerProfile,
+                        onClick = {
+                            val parsedPort = newServerPortValue ?: return@Button
+                            val normalizedHost = newServerHost.trim()
+                            val normalizedLabel = newServerLabel.trim()
+                            val newProfile = ServerProfile(
+                                id = "${normalizedHost}:${parsedPort}",
+                                label = normalizedLabel,
+                                host = normalizedHost,
+                                port = parsedPort,
+                            )
+                            if (serverProfiles.none { it.id == newProfile.id }) {
+                                serverProfiles = serverProfiles + newProfile
+                            }
+                            selectedServerProfileId = newProfile.id
+                            serverAddressText = serverEndpoint(newProfile)
+                        },
+                    ) {
+                        Text("Add server profile")
+                    }
+                    serverProfiles.forEach { profile ->
+                        val isSelected = profile.id == selectedServerProfileId
+                        Card(modifier = Modifier.fillMaxWidth()) {
+                            Column(
+                                modifier = Modifier.padding(12.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                Text(
+                                    text = "${profile.label} (${serverEndpoint(profile)})",
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                )
+                                Text(
+                                    text = "Last state: ${profile.lastState} · Last latency: ${profile.lastLatencyMs ?: 0} ms",
+                                    style = MaterialTheme.typography.bodySmall,
+                                )
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                ) {
+                                    ActionButton(label = "Select", enabled = !isBusy) {
+                                        selectedServerProfileId = profile.id
+                                        serverAddressText = serverEndpoint(profile)
+                                    }
+                                    ActionButton(label = "Connect", enabled = !isBusy) {
+                                        dispatchServerProfile(profile, pingOnly = false)
+                                    }
+                                    ActionButton(label = "Ping", enabled = !isBusy) {
+                                        dispatchServerProfile(profile, pingOnly = true)
+                                    }
+                                    ActionButton(
+                                        label = "Remove",
+                                        enabled = !isBusy && !profile.id.startsWith("default-"),
+                                    ) {
+                                        val remaining = serverProfiles.filterNot { it.id == profile.id }
+                                        serverProfiles = remaining
+                                        if (selectedServerProfileId == profile.id && remaining.isNotEmpty()) {
+                                            selectedServerProfileId = remaining.first().id
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
                 OutlinedTextField(
                     value = serverAddressText,
                     onValueChange = { serverAddressText = it },

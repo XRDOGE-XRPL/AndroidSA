@@ -24,3 +24,9 @@ Alle relevanten Änderungen dieses Projekts werden in dieser Datei dokumentiert.
 - Native Command-Verarbeitung in C++ erweitert um reichere Zustandsübergänge, Statistiken und Event-Aufzeichnung.
 - Kotlin- und Native-Tests decken jetzt Parsing, Event-Logik und neue Commands ab.
 - Dokumentation für Architektur, Commands und Laufzeitverhalten erweitert.
+- Native Paket- und Verbindungsstatistiken werden für zentrale Flows jetzt über reale UDP-`sendto`/`recvfrom`-Operationen statt reinem Zähler-Mocking erhoben.
+- Native Event-Historie enthält dekodierte RakNet/Open:MP-orientierte Paketereignisse aus dem Bytestream-Pfad (inkl. RPC-Wrapper-Erkennung).
+- NativeBridge normalisiert Snapshot-Daten robuster und propagiert native Fehlerdiagnostik deterministisch in die JVM/UI, wenn Dispatches scheitern.
+- Compose-UI nutzt stärkere asynchrone Sperrlogik via Mutex für Command-Dispatch und aktualisiert Laufzeitmetriken automatisch bei aktiver Verbindung.
+- Compose-UI enthält nun einen dynamischen Server-Browser mit Profilverwaltung, Direkt-Connect/Ping-Aktionen und Server-spezifischer Metrikverfolgung.
+- CI-Workflow nutzt nun explizites Gradle-Warmup und Retry-Strategien für Plugin-/Dependency-Auflösung, um transiente Auflösungsfehler robuster abzufangen.

@@ -60,6 +60,16 @@ Der Native-State liefert eine erweiterte Summary inklusive:
 - letzter erfolgreicher Command
 - begrenzte Event-Historie für Debug-Ausgaben
 
+## UDP-Probing und Paket-Parsing
+
+Der aktuelle Native-Kern verwendet für `connect`, `reconnect`, `simulate:rx` und `simulate:tx` einen realen UDP-Socket-Flow auf Loopback-Basis:
+
+- Öffnen und Binden eines UDP-Sockets auf `127.0.0.1` (ephemerer Port)
+- tatsächliche `sendto`/`recvfrom`-Operationen für Paketzählung
+- Auswertung eingehender Pakete über einen RakNet/Open:MP-orientierten Bytestream-Pfad
+
+Der Parser erkennt derzeit grundlegende Pakettypen (inkl. RPC-Wrapper `0x7d`) und schreibt dekodierte Ereignisse in die Event-Historie.
+
 ## Build-Hinweise
 
 Der native Teil wird über das App-Modul gebaut. Direkter Einstieg:

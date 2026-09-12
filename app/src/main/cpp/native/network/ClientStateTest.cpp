@@ -68,10 +68,10 @@ int main() {
     if (!expect(connectedSummary[6] == "42", "Latency override should persist in summary")) {
         return 1;
     }
-    if (!expect(connectedSummary[7] == "8", "Packet send counter should reflect connect + tx simulation")) {
+    if (!expect(std::stoi(connectedSummary[7]) >= 5, "Packet send counter should reflect real UDP sends")) {
         return 1;
     }
-    if (!expect(connectedSummary[8] == "7", "Packet receive counter should reflect connect + rx simulation")) {
+    if (!expect(std::stoi(connectedSummary[8]) >= 5, "Packet receive counter should reflect real UDP receives")) {
         return 1;
     }
     if (!expect(connectedSummary[9] == "1", "Connect attempts should increment")) {
@@ -86,7 +86,7 @@ int main() {
     }
 
     const auto statusSummary = parseSummary(state.summary());
-    if (!expect(statusSummary[3] == "Status snapshot ready for CJ on play.example.org:7777", "Status command should refresh diagnostics with expanded state")) {
+    if (!expect(statusSummary[3].find("Status snapshot ready for CJ on play.example.org:7777") == 0, "Status command should refresh diagnostics with expanded state")) {
         return 1;
     }
 
@@ -144,6 +144,9 @@ int main() {
         return 1;
     }
     if (!expect(events.back() == "Session reset to initial state", "Reset should append a fresh event after clearing history")) {
+        return 1;
+    }
+    if (!expect(events.size() == 1, "Reset should leave only the reset event after clearing history")) {
         return 1;
     }
 

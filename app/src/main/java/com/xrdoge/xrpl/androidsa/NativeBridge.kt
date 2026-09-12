@@ -22,6 +22,7 @@ data class NativeClientSnapshot(
 internal const val MaxNativeCommandLength = 64
 private const val NativeSummaryDelimiter = '|'
 private const val NativeSummaryFieldCount = 11
+private const val MaxNativeRecentEvents = 48
 
 private fun requireExactValueCommand(sanitized: String, normalized: String, keyword: String, label: String): String {
     val separatorIndex = normalized.indexOf(':')
@@ -115,7 +116,35 @@ internal fun parseNativeEventLog(rawEvents: String): List<String> {
         .map(String::trim)
         .filter { it.isNotEmpty() }
         .toList()
+        .takeLast(MaxNativeRecentEvents)
         .ifEmpty { listOf("No recent events") }
+}
+
+private fun diagnosticsIndicateNativeFailure(diagnostics: String): Boolean {
+    val normalized = diagnostics.lowercase()
+    return normalized.contains("failed") ||
+        normalized.contains("failure") ||
+        normalized.contains("timeout") ||
+        normalized.contains("rejected")
+}
+
+internal fun normalizeNativeSnapshot(snapshot: NativeClientSnapshot): NativeClientSnapshot {
+    val normalizedState = when {
+        snapshot.overview.connectionState.equals("error", ignoreCase = true) -> "error"
+        diagnosticsIndicateNativeFailure(snapshot.overview.diagnostics) -> "error"
+        else -> snapshot.overview.connectionState
+    }
+
+    val normalizedOverview = if (normalizedState != snapshot.overview.connectionState) {
+        snapshot.overview.copy(connectionState = normalizedState)
+    } else {
+        snapshot.overview
+    }
+
+    return snapshot.copy(
+        overview = normalizedOverview,
+        recentEvents = snapshot.recentEvents.takeLast(MaxNativeRecentEvents).ifEmpty { listOf("No recent events") },
+    )
 }
 
 object NativeBridge {
@@ -136,9 +165,11 @@ object NativeBridge {
 
     fun snapshot(): Result<NativeClientSnapshot> = runCatching {
         ensureLibraryLoaded()
-        NativeClientSnapshot(
-            overview = parseNativeOverview(nativeGetClientSummary()),
-            recentEvents = parseNativeEventLog(nativeGetRecentEvents()),
+        normalizeNativeSnapshot(
+            NativeClientSnapshot(
+                overview = parseNativeOverview(nativeGetClientSummary()),
+                recentEvents = parseNativeEventLog(nativeGetRecentEvents()),
+            ),
         )
     }
 
@@ -150,7 +181,8 @@ object NativeBridge {
         if (nativeDispatchCommand(sanitizedCommand)) {
             snapshot().getOrThrow()
         } else {
-            error("Native command was rejected")
+            val diagnosticMessage = snapshot().getOrNull()?.overview?.diagnostics
+            error(diagnosticMessage?.ifBlank { "Native command was rejected" } ?: "Native command was rejected")
         }
     }
 }
