@@ -389,46 +389,6 @@ class MirrorHandler(BaseHTTPRequestHandler):
 """.encode("utf-8")
             return "application/xml; charset=utf-8", pom
 
-        if request_path.startswith(marker_prefix) and request_path.endswith(".module"):
-            version = request_path.removeprefix(marker_prefix).split("/", 1)[0]
-            module = f"""{{
-  "formatVersion": "1.1",
-  "component": {{
-    "group": "com.android.application",
-    "module": "com.android.application.gradle.plugin",
-    "version": "{version}",
-    "attributes": {{
-      "org.gradle.status": "release"
-    }}
-  }},
-  "createdBy": {{
-    "gradle": {{
-      "version": "8.7"
-    }}
-  }},
-  "variants": [
-    {{
-      "name": "runtimeElements",
-      "attributes": {{
-        "org.gradle.category": "library",
-        "org.gradle.usage": "java-runtime"
-      }},
-      "dependencies": [
-        {{
-          "group": "com.android.tools.build",
-          "module": "gradle",
-          "version": {{
-            "requires": "{version}"
-          }}
-        }}
-      ],
-      "files": []
-    }}
-  ]
-}}
-""".encode("utf-8")
-            return "application/json; charset=utf-8", module
-
         return None
 
 
