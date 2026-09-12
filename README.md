@@ -125,6 +125,7 @@ AndroidSA|<transport>|<state>|<diagnostics>
 ```
 
 Die Kotlin-Seite nutzt Fallbacks für fehlende/leere Segmente.
+`<diagnostics>` darf selbst kein `|` enthalten, damit das 4-Felder-Format stabil bleibt.
 
 ## UI- und Laufzeitverhalten
 
