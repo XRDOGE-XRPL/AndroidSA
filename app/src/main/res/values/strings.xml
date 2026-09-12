@@ -1,4 +1,6 @@
 <resources>
     <string name="app_name">AndroidSA</string>
-    <string name="app_welcome">AndroidSA project foundation is ready.</string>
+    <string name="bridge_ready">JNI geladen</string>
+    <string name="bridge_stub">JNI Platzhalter</string>
+    <string name="app_welcome_format">AndroidSA project foundation is ready.\nBridge: %1$s\nStatus: %2$s</string>
 </resources>
