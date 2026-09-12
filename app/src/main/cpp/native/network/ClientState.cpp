@@ -75,6 +75,8 @@ bool ClientState::dispatchCommand(const std::string& command) {
         transport_ = "RakNet-compatible UDP";
         state_ = "initializing";
         diagnostics_ = "Native state reset";
+    } else if (normalized == "status") {
+        diagnostics_ = "Status snapshot requested";
     } else if (startsWith(normalized, "transport")) {
         if (transportSeparator == std::string::npos) {
             return false;
@@ -92,6 +94,21 @@ bool ClientState::dispatchCommand(const std::string& command) {
         transport_ = transport;
         state_ = "ready";
         diagnostics_ = "Transport switched to " + transport;
+    } else if (startsWith(normalized, "diagnostics")) {
+        if (transportSeparator == std::string::npos) {
+            return false;
+        }
+
+        const auto diagnosticsKeyword = normalized.substr(0, transportSeparator);
+        if (diagnosticsKeyword != "diagnostics") {
+            return false;
+        }
+
+        const auto diagnosticsValue = trim(sanitized.substr(transportSeparator + 1));
+        if (diagnosticsValue.empty()) {
+            return false;
+        }
+        diagnostics_ = "Manual diagnostics: " + diagnosticsValue;
     } else {
         state_ = "command:" + sanitized;
         diagnostics_ = "Last JNI command: " + sanitized;

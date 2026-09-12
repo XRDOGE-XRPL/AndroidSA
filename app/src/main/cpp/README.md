@@ -23,7 +23,9 @@ Der native Layer kapselt JNI-Einstiegspunkte, Zustandsverwaltung und Logging fü
 - `connect`
 - `disconnect`
 - `reset`
+- `status`
 - `transport:<name>`
+- `diagnostics:<text>`
 
 Validierung im nativen Layer:
 
@@ -32,6 +34,7 @@ Validierung im nativen Layer:
 - keine Steuerzeichen
 - kein `|`
 - `transport` muss exakt mit `:` getrennt sein
+- `diagnostics` muss exakt mit `:` getrennt sein
 
 ## Build-Hinweise
 

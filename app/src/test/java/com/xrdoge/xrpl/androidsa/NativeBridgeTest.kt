@@ -86,6 +86,21 @@ class NativeBridgeTest {
     }
 
     @Test
+    fun requireValidNativeCommandAcceptsStatusCommand() {
+        assertEquals("status", requireValidNativeCommand("status"))
+    }
+
+    @Test
+    fun requireValidNativeCommandAcceptsDiagnosticsCommand() {
+        assertEquals("diagnostics:ok", requireValidNativeCommand("diagnostics:ok"))
+    }
+
+    @Test
+    fun requireValidNativeCommandAcceptsMixedCaseDiagnosticsCommand() {
+        assertEquals("Diagnostics:ok", requireValidNativeCommand("Diagnostics:ok"))
+    }
+
+    @Test
     fun requireValidNativeCommandAcceptsMixedCaseTransportCommand() {
         assertEquals("Transport:udp", requireValidNativeCommand("Transport:udp"))
     }
@@ -108,6 +123,27 @@ class NativeBridgeTest {
     fun requireValidNativeCommandRejectsWhitespaceBeforeTransportSeparator() {
         assertThrows(IllegalArgumentException::class.java) {
             requireValidNativeCommand("transport :udp")
+        }
+    }
+
+    @Test
+    fun requireValidNativeCommandRejectsMissingDiagnosticsSeparator() {
+        assertThrows(IllegalArgumentException::class.java) {
+            requireValidNativeCommand("diagnosticsok")
+        }
+    }
+
+    @Test
+    fun requireValidNativeCommandRejectsDiagnosticsKeywordTail() {
+        assertThrows(IllegalArgumentException::class.java) {
+            requireValidNativeCommand("diagnostics foo:bar")
+        }
+    }
+
+    @Test
+    fun requireValidNativeCommandRejectsBlankDiagnosticsValue() {
+        assertThrows(IllegalArgumentException::class.java) {
+            requireValidNativeCommand("diagnostics:   ")
         }
     }
 }

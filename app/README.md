@@ -37,5 +37,6 @@ Die Command-Eingabe wird vor dem JNI-Aufruf validiert:
 - keine Steuerzeichen
 - kein `|`
 - für Transportwechsel exakt `transport:<value>`
+- für manuelle Diagnostik exakt `diagnostics:<value>`
 
 Diese Regeln werden zusätzlich im nativen Layer abgesichert.

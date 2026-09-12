@@ -13,6 +13,7 @@ AndroidSA ist eine Android-Basis für einen SA:MP / Open:MP-orientierten Client 
 - [Native Command-Spezifikation](#native-command-spezifikation)
 - [UI- und Laufzeitverhalten](#ui--und-laufzeitverhalten)
 - [CI](#ci)
+- [Release-Management](#release-management)
 - [Troubleshooting](#troubleshooting)
 - [Lizenz](#lizenz)
 
@@ -103,7 +104,9 @@ Hinweis: Das Root-Projekt verdrahtet `build` und `check` auf `:app:build` bzw. `
 - `connect` → Zustand wird `connected`
 - `disconnect` → Zustand wird `disconnected`
 - `reset` → Transport/Zustand/Diagnostik auf Initialwerte
+- `status` → erzeugt einen Diagnose-Snapshot ohne Zustandswechsel
 - `transport:<name>` → aktiven Transport wechseln
+- `diagnostics:<text>` → setzt eine manuelle Diagnostikmeldung
 
 ### Validierungsregeln (Kotlin + Native)
 
@@ -112,6 +115,10 @@ Hinweis: Das Root-Projekt verdrahtet `build` und `check` auf `:app:build` bzw. `
 - Keine Steuerzeichen erlaubt.
 - Zeichen `|` ist verboten (Schutz des Summary-Formats).
 - `transport`-Syntax muss exakt `transport:<value>` sein:
+  - Keyword ist case-insensitive
+  - kein Leerzeichen vor `:`
+  - Wert nach `:` darf nicht leer sein
+- `diagnostics`-Syntax muss exakt `diagnostics:<value>` sein:
   - Keyword ist case-insensitive
   - kein Leerzeichen vor `:`
   - Wert nach `:` darf nicht leer sein
@@ -143,18 +150,31 @@ Die CI-Pipeline:
 1. Checkout (`actions/checkout@v4`)
 2. JDK 17 + Gradle Cache (`actions/setup-java@v4`)
 3. Gradle Setup + Wrapper Validation
-4. Build mit:
+4. Unit-Tests (`:app:testDebugUnitTest`)
+5. Build mit:
 
 ```bash
 ./gradlew --no-daemon check build --stacktrace
 ```
+
+Zusätzlich werden Testreports als CI-Artefakt hochgeladen.
+
+## Release-Management
+
+- Changelog: `CHANGELOG.md`
+- Checkliste: `docs/RELEASE_CHECKLIST.md`
+- Empfohlener Ablauf:
+  1. `CHANGELOG.md` unter `Unreleased` aktualisieren
+  2. lokale Checks/Build ausführen
+  3. CI-Ergebnisse und Testreports prüfen
+  4. Release-Tag und Notes vorbereiten
 
 ## Troubleshooting
 
 - **Gradle/Plugin kann nicht aufgelöst werden:** Netzwerkzugriff auf Google Maven prüfen.
 - **NDK/CMake-Probleme:** installierte Versionen mit `app/build.gradle.kts` abgleichen.
 - **JNI-Library lädt nicht:** sicherstellen, dass `androidsa` erfolgreich gebaut wurde.
-- **Command wird abgelehnt:** auf Syntax (`transport:<value>`), Länge und verbotene Zeichen prüfen.
+- **Command wird abgelehnt:** auf Syntax (`transport:<value>`/`diagnostics:<value>`), Länge und verbotene Zeichen prüfen.
 
 ## Lizenz
 
