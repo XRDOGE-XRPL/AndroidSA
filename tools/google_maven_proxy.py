@@ -249,8 +249,7 @@ class MavenMirrorIndex:
         href = batch_response["objects"][0]["actions"]["download"]["href"]
         self._download_to_file(href, destination)
 
-    @staticmethod
-    def _patch_agp_plugin_jar(path: Path) -> None:
+    def _patch_agp_plugin_jar(self, path: Path) -> None:
         plugin_path = "com/android/build/gradle/AppPlugin.class"
         marker_paths = {
             "META-INF/gradle-plugins/com.android.application.properties": (
@@ -272,6 +271,11 @@ class MavenMirrorIndex:
         if javac is None:
             raise RuntimeError("javac is required to patch the Android Gradle plugin jar")
 
+        gradle_api_jar = self.ensure_artifact(
+            "com/android/tools/build/gradle-api/8.5.2/gradle-api-8.5.2.jar"
+        )
+        if gradle_api_jar is None:
+            raise RuntimeError("gradle-api jar is required to patch the Android Gradle plugin jar")
         gradle_jars = sorted(
             jar
             for lib_root in (Path.home() / ".gradle" / "wrapper" / "dists").glob("**/gradle-*/lib")
@@ -279,7 +283,7 @@ class MavenMirrorIndex:
         )
         if not gradle_jars:
             raise RuntimeError("Gradle distribution jars are required to patch the Android Gradle plugin jar")
-        compile_classpath = os.pathsep.join(str(jar) for jar in gradle_jars)
+        compile_classpath = os.pathsep.join([str(gradle_api_jar), *(str(jar) for jar in gradle_jars)])
 
         with tempfile.TemporaryDirectory(prefix="androidsa-agp-patch-") as temp_dir:
             temp_root = Path(temp_dir)
@@ -290,7 +294,7 @@ class MavenMirrorIndex:
                 """
 package com.android.build.gradle;
 
-public final class AppPlugin implements org.gradle.api.Plugin<org.gradle.api.Project> {
+public final class AppPlugin extends BasePlugin {
     @Override
     public void apply(org.gradle.api.Project project) {
         project.getPluginManager().apply("com.android.internal.application");
