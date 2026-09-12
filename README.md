@@ -1,63 +1,159 @@
 # AndroidSA
 
-SA:MP / Open:MP Client für Android mit Jetpack Compose, JNI-Bridge und nativen C++20-Komponenten.
+AndroidSA ist eine Android-Basis für einen SA:MP / Open:MP-orientierten Client mit klarer Trennung zwischen Compose-UI, Kotlin/JNI-Bridge und nativer C++-Laufzeit.
 
-**Ziel:** Eine Android-Basis für Multiplayer-Gameplay mit klarer Trennung zwischen UI, Kotlin/JNI-Brücke und nativer Laufzeit.
+## Inhalt
+
+- [Projektziel](#projektziel)
+- [Architektur](#architektur)
+- [Repository-Struktur](#repository-struktur)
+- [Voraussetzungen](#voraussetzungen)
+- [Schnellstart](#schnellstart)
+- [Build- und Testbefehle](#build--und-testbefehle)
+- [Native Command-Spezifikation](#native-command-spezifikation)
+- [UI- und Laufzeitverhalten](#ui--und-laufzeitverhalten)
+- [CI](#ci)
+- [Troubleshooting](#troubleshooting)
+- [Lizenz](#lizenz)
+
+## Projektziel
+
+Das Projekt stellt ein erweiterbares Grundgerüst bereit, um Multiplayer-Logik auf Android kontrolliert über eine Kotlin/JNI-Schicht mit nativen Komponenten zu verbinden.
 
 ## Architektur
 
-- **Layer 1 (UI):** Jetpack Compose in `app/src/main/java/com/xrdoge/xrpl/androidsa/MainActivity.kt`
-- **Layer 2 (JNI Bridge):** `NativeBridge.kt` kapselt den Austausch zwischen Kotlin und C++
-- **Layer 3 (Native):** C++20 mit CMake in `app/src/main/cpp/`
-  - `native-lib.cpp` – JNI-Einstiegspunkte
-  - `native/network/ClientState.*` – einfacher Client-Zustand und Command-Dispatch
-  - `native/logging/Logger.*` – Android-Logging
+### Layer 1 – Android UI (Jetpack Compose)
 
-## Build-Anforderungen
+- Einstieg: `app/src/main/java/com/xrdoge/xrpl/androidsa/MainActivity.kt`
+- Oberfläche zeigt:
+  - Client-Name
+  - aktiven Transport
+  - Verbindungszustand
+  - Diagnostik-Text
+- Eingabefeld + Button senden native Commands über die Bridge.
 
+### Layer 2 – Kotlin/JNI-Bridge
+
+- Datei: `app/src/main/java/com/xrdoge/xrpl/androidsa/NativeBridge.kt`
+- Aufgaben:
+  - Laden der nativen Bibliothek `androidsa`
+  - Validierung von Commands vor JNI-Dispatch
+  - Parsen der nativen Summary (`client|transport|state|diagnostics`)
+
+### Layer 3 – Native C++20-Laufzeit
+
+- Einstieg: `app/src/main/cpp/native-lib.cpp`
+- Zustand/Command-Dispatch: `app/src/main/cpp/native/network/ClientState.*`
+- Logging: `app/src/main/cpp/native/logging/Logger.*`
+- Build über CMake in `app/src/main/cpp/CMakeLists.txt`
+
+## Repository-Struktur
+
+```text
+AndroidSA/
+├── app/
+│   ├── src/main/java/com/xrdoge/xrpl/androidsa/
+│   │   ├── MainActivity.kt
+│   │   └── NativeBridge.kt
+│   ├── src/main/cpp/
+│   │   ├── CMakeLists.txt
+│   │   ├── native-lib.cpp
+│   │   └── native/
+│   │       ├── logging/Logger.*
+│   │       └── network/ClientState.*
+│   └── src/test/java/com/xrdoge/xrpl/androidsa/NativeBridgeTest.kt
+├── .github/workflows/android-background-build.yml
+├── build.gradle.kts
+└── settings.gradle.kts
+```
+
+## Voraussetzungen
+
+- JDK 17
 - Android SDK 34+
 - minSdk 26
-- NDK 27.x
+- Android NDK 27.x
 - CMake 3.22.1+
-- JDK 17
-- ABIs: `arm64-v8a`, `armeabi-v7a`
+- unterstützte ABIs: `arm64-v8a`, `armeabi-v7a`
 
-## Quick Start
+## Schnellstart
 
 ```bash
 git clone https://github.com/XRDOGE-XRPL/AndroidSA.git
 cd AndroidSA
+chmod +x ./gradlew
 ./gradlew build
 ```
 
-## Aktueller Stand
+## Build- und Testbefehle
 
-- Vollständiges Android-Gradle-Projekt mit Wrapper
-- Compose-Startoberfläche für den nativen Status
-- JNI-Bridge für Statusabfrage und Command-Refresh
-- Native C++20-Bibliothek mit thread-sicherem Client-Zustand
-- Kotlin-Unit-Test für die Parsing-Logik
-
-## Native-Kommandos in der App
-
-- `ping` → setzt Zustand auf `ready`
-- `connect` → simuliert Verbindungsaufbau (`connected`)
-- `disconnect` → simuliert Trennung (`disconnected`)
-- `reset` → setzt nativen Zustand auf Startwerte zurück
-- `transport:<name>` → setzt den aktiven Transport auf `<name>`
-- Kommandos sind auf maximal 64 Zeichen begrenzt.
-- Kommandos dürfen keine Steuerzeichen und kein `|` enthalten (Schutz des nativen Summary-Formats).
-
-## Hinweise zur lokalen Validierung
-
-- Vollbuild: `./gradlew build`
+- Gesamtbuild: `./gradlew build`
 - Checks + Build: `./gradlew check build`
-- Nativen Teil isoliert prüfen: CMake mit dem Android-NDK gegen `app/src/main/cpp`
+- App-spezifisch: `./gradlew :app:build`
+- App-Checks: `./gradlew :app:check`
+- Unit-Tests: `./gradlew :app:testDebugUnitTest`
+
+Hinweis: Das Root-Projekt verdrahtet `build` und `check` auf `:app:build` bzw. `:app:check`.
+
+## Native Command-Spezifikation
+
+### Unterstützte Commands
+
+- `ping` → Zustand wird `ready`
+- `connect` → Zustand wird `connected`
+- `disconnect` → Zustand wird `disconnected`
+- `reset` → Transport/Zustand/Diagnostik auf Initialwerte
+- `transport:<name>` → aktiven Transport wechseln
+
+### Validierungsregeln (Kotlin + Native)
+
+- Command wird getrimmt und darf nicht leer sein.
+- Maximale Länge: 64 Zeichen.
+- Keine Steuerzeichen erlaubt.
+- Zeichen `|` ist verboten (Schutz des Summary-Formats).
+- `transport`-Syntax muss exakt `transport:<value>` sein:
+  - Keyword ist case-insensitive
+  - kein Leerzeichen vor `:`
+  - Wert nach `:` darf nicht leer sein
+
+### Summary-Format aus Native Layer
+
+Die native Summary wird als Pipe-separierter String geliefert:
+
+```text
+AndroidSA|<transport>|<state>|<diagnostics>
+```
+
+Die Kotlin-Seite nutzt Fallbacks für fehlende/leere Segmente.
+
+## UI- und Laufzeitverhalten
+
+- Beim App-Start wird der native Zustand asynchron geladen.
+- Während laufender Operationen ist die Command-Eingabe deaktiviert.
+- Fehler aus Bridge/Native werden im Diagnostics-Feld angezeigt.
+- Command-Ausführung ist gegen paralleles Mehrfach-Dispatch abgesichert.
 
 ## CI
 
-- Workflow: `.github/workflows/android-background-build.yml`
-- Führt `./gradlew --no-daemon check build --stacktrace` aus
+Workflow: `.github/workflows/android-background-build.yml`
+
+Die CI-Pipeline:
+
+1. Checkout (`actions/checkout@v4`)
+2. JDK 17 + Gradle Cache (`actions/setup-java@v4`)
+3. Gradle Setup + Wrapper Validation
+4. Build mit:
+
+```bash
+./gradlew --no-daemon check build --stacktrace
+```
+
+## Troubleshooting
+
+- **Gradle/Plugin kann nicht aufgelöst werden:** Netzwerkzugriff auf Google Maven prüfen.
+- **NDK/CMake-Probleme:** installierte Versionen mit `app/build.gradle.kts` abgleichen.
+- **JNI-Library lädt nicht:** sicherstellen, dass `androidsa` erfolgreich gebaut wurde.
+- **Command wird abgelehnt:** auf Syntax (`transport:<value>`), Länge und verbotene Zeichen prüfen.
 
 ## Lizenz
 
