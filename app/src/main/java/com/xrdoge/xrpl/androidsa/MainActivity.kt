@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -75,6 +76,51 @@ private fun AndroidSAApp() {
             requireValidNativeCommand(commandText)
         }.exceptionOrNull()?.message
     }
+    val dispatchCommand: (String) -> Unit = dispatch@{ commandToDispatch ->
+        if (isLoading || commandJob?.isActive == true) {
+            return@dispatch
+        }
+
+        val sanitizedCommand = runCatching {
+            requireValidNativeCommand(commandToDispatch)
+        }.getOrElse { validationError ->
+            overview = overview.copy(
+                connectionState = "error",
+                diagnostics = validationError.message ?: "Native command validation failed",
+            )
+            return@dispatch
+        }
+
+        isLoading = true
+        val launchedJob = scope.launch {
+            try {
+                val result = withContext(Dispatchers.IO) {
+                    NativeBridge.refresh(sanitizedCommand)
+                }
+                overview = result.getOrElse {
+                    overview.copy(
+                        connectionState = "error",
+                        diagnostics = it.message ?: "Native command failed",
+                    )
+                }
+            } catch (error: Exception) {
+                if (error is CancellationException) {
+                    throw error
+                }
+                overview = overview.copy(
+                    connectionState = "error",
+                    diagnostics = error.message ?: "Native command failed",
+                )
+            } finally {
+                val finishingJob = coroutineContext[Job]
+                if (commandJob === finishingJob) {
+                    isLoading = false
+                    commandJob = null
+                }
+            }
+        }
+        commandJob = launchedJob
+    }
 
     LaunchedEffect(Unit) {
         try {
@@ -112,50 +158,75 @@ private fun AndroidSAApp() {
                 onValueChange = { commandText = it },
                 label = { Text("Native command") },
                 supportingText = {
-                    Text(commandError ?: "Examples: ping, connect, disconnect, reset, transport:udp")
+                    Text(commandError ?: "Examples: ping, connect, disconnect, reset, status, transport:udp, diagnostics:ok")
                 },
                 modifier = Modifier.fillMaxWidth(),
                 enabled = !isLoading,
                 isError = commandError != null,
                 singleLine = true,
             )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                QuickCommandButton(
+                    label = "Ping",
+                    command = "ping",
+                    enabled = !isLoading && commandJob?.isActive != true,
+                ) { command ->
+                    commandText = command
+                    dispatchCommand(command)
+                }
+                QuickCommandButton(
+                    label = "Connect",
+                    command = "connect",
+                    enabled = !isLoading && commandJob?.isActive != true,
+                ) { command ->
+                    commandText = command
+                    dispatchCommand(command)
+                }
+                QuickCommandButton(
+                    label = "Status",
+                    command = "status",
+                    enabled = !isLoading && commandJob?.isActive != true,
+                ) { command ->
+                    commandText = command
+                    dispatchCommand(command)
+                }
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                QuickCommandButton(
+                    label = "Disconnect",
+                    command = "disconnect",
+                    enabled = !isLoading && commandJob?.isActive != true,
+                ) { command ->
+                    commandText = command
+                    dispatchCommand(command)
+                }
+                QuickCommandButton(
+                    label = "Reset",
+                    command = "reset",
+                    enabled = !isLoading && commandJob?.isActive != true,
+                ) { command ->
+                    commandText = command
+                    dispatchCommand(command)
+                }
+                QuickCommandButton(
+                    label = "Diag OK",
+                    command = "diagnostics:ok",
+                    enabled = !isLoading && commandJob?.isActive != true,
+                ) { command ->
+                    commandText = command
+                    dispatchCommand(command)
+                }
+            }
             Button(
-                enabled = !isLoading && commandError == null,
+                enabled = !isLoading && commandJob?.isActive != true && commandError == null,
                 onClick = {
-                    if (isLoading || commandJob?.isActive == true) {
-                        return@Button
-                    }
-
-                    val commandToDispatch = commandText
-                    isLoading = true
-                    val launchedJob = scope.launch {
-                        try {
-                            val result = withContext(Dispatchers.IO) {
-                                NativeBridge.refresh(commandToDispatch)
-                            }
-                            overview = result.getOrElse {
-                                overview.copy(
-                                    connectionState = "error",
-                                    diagnostics = it.message ?: "Native command failed",
-                                )
-                            }
-                        } catch (error: Exception) {
-                            if (error is CancellationException) {
-                                throw error
-                            }
-                            overview = overview.copy(
-                                connectionState = "error",
-                                diagnostics = error.message ?: "Native command failed",
-                            )
-                        } finally {
-                            val finishingJob = coroutineContext[Job]
-                            if (commandJob === finishingJob) {
-                                isLoading = false
-                                commandJob = null
-                            }
-                        }
-                    }
-                    commandJob = launchedJob
+                    dispatchCommand(commandText)
                 },
             ) {
                 if (isLoading) {
@@ -174,6 +245,22 @@ private fun AndroidSAApp() {
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun RowScope.QuickCommandButton(
+    label: String,
+    command: String,
+    enabled: Boolean,
+    onCommand: (String) -> Unit,
+) {
+    Button(
+        modifier = Modifier.weight(1f),
+        enabled = enabled,
+        onClick = { onCommand(command) },
+    ) {
+        Text(label)
     }
 }
 

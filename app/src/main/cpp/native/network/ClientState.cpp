@@ -9,6 +9,8 @@
 
 namespace androidsa::network {
 namespace {
+constexpr std::size_t kMaxCommandLength = 64;
+
 std::string trim(std::string value) {
     value.erase(value.begin(), std::find_if(value.begin(), value.end(), [](unsigned char ch) {
         return !std::isspace(ch);
@@ -29,6 +31,12 @@ std::string lower(std::string value) {
 bool startsWith(const std::string& value, std::string_view prefix) {
     return value.rfind(prefix, 0) == 0;
 }
+
+bool containsInvalidSummaryCharacters(std::string_view value) {
+    return std::any_of(value.begin(), value.end(), [](unsigned char ch) {
+        return ch < 0x20 || ch == 0x7F || ch == '|';
+    });
+}
 }  // namespace
 
 std::string ClientState::summary() {
@@ -41,6 +49,12 @@ std::string ClientState::summary() {
 bool ClientState::dispatchCommand(const std::string& command) {
     const auto sanitized = trim(command);
     if (sanitized.empty()) {
+        return false;
+    }
+    if (sanitized.size() > kMaxCommandLength) {
+        return false;
+    }
+    if (containsInvalidSummaryCharacters(sanitized)) {
         return false;
     }
 
@@ -61,6 +75,8 @@ bool ClientState::dispatchCommand(const std::string& command) {
         transport_ = "RakNet-compatible UDP";
         state_ = "initializing";
         diagnostics_ = "Native state reset";
+    } else if (normalized == "status") {
+        diagnostics_ = "Status snapshot requested";
     } else if (startsWith(normalized, "transport")) {
         if (transportSeparator == std::string::npos) {
             return false;
@@ -78,6 +94,21 @@ bool ClientState::dispatchCommand(const std::string& command) {
         transport_ = transport;
         state_ = "ready";
         diagnostics_ = "Transport switched to " + transport;
+    } else if (normalized == "diagnostics" || startsWith(normalized, "diagnostics:")) {
+        if (transportSeparator == std::string::npos) {
+            return false;
+        }
+
+        const auto diagnosticsKeyword = normalized.substr(0, transportSeparator);
+        if (diagnosticsKeyword != "diagnostics") {
+            return false;
+        }
+
+        const auto diagnosticsValue = trim(sanitized.substr(transportSeparator + 1));
+        if (diagnosticsValue.empty()) {
+            return false;
+        }
+        diagnostics_ = "Manual diagnostics: " + diagnosticsValue;
     } else {
         state_ = "command:" + sanitized;
         diagnostics_ = "Last JNI command: " + sanitized;

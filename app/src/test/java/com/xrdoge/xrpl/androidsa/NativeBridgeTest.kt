@@ -67,8 +67,37 @@ class NativeBridgeTest {
     }
 
     @Test
+    fun requireValidNativeCommandRejectsControlCharacters() {
+        assertThrows(IllegalArgumentException::class.java) {
+            requireValidNativeCommand("ping\n")
+        }
+    }
+
+    @Test
+    fun requireValidNativeCommandRejectsSummaryDelimiterCharacter() {
+        assertThrows(IllegalArgumentException::class.java) {
+            requireValidNativeCommand("transport:udp|tcp")
+        }
+    }
+
+    @Test
     fun requireValidNativeCommandAcceptsTransportCommand() {
         assertEquals("transport:udp", requireValidNativeCommand("transport:udp"))
+    }
+
+    @Test
+    fun requireValidNativeCommandAcceptsStatusCommand() {
+        assertEquals("status", requireValidNativeCommand("status"))
+    }
+
+    @Test
+    fun requireValidNativeCommandAcceptsDiagnosticsCommand() {
+        assertEquals("diagnostics:ok", requireValidNativeCommand("diagnostics:ok"))
+    }
+
+    @Test
+    fun requireValidNativeCommandAcceptsMixedCaseDiagnosticsCommand() {
+        assertEquals("Diagnostics:ok", requireValidNativeCommand("Diagnostics:ok"))
     }
 
     @Test
@@ -94,6 +123,25 @@ class NativeBridgeTest {
     fun requireValidNativeCommandRejectsWhitespaceBeforeTransportSeparator() {
         assertThrows(IllegalArgumentException::class.java) {
             requireValidNativeCommand("transport :udp")
+        }
+    }
+
+    @Test
+    fun requireValidNativeCommandRejectsMissingDiagnosticsSeparator() {
+        assertThrows(IllegalArgumentException::class.java) {
+            requireValidNativeCommand("diagnostics")
+        }
+    }
+
+    @Test
+    fun requireValidNativeCommandAcceptsDiagnosticsPrefixedGenericCommand() {
+        assertEquals("diagnosticsok", requireValidNativeCommand("diagnosticsok"))
+    }
+
+    @Test
+    fun requireValidNativeCommandRejectsBlankDiagnosticsValue() {
+        assertThrows(IllegalArgumentException::class.java) {
+            requireValidNativeCommand("diagnostics:   ")
         }
     }
 }

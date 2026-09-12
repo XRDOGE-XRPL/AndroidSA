@@ -48,5 +48,24 @@ jobs:
       - name: Prepare Gradle wrapper
         run: chmod +x ./gradlew
 
-      - name: Build project
-        run: ./gradlew --no-daemon check build --stacktrace
+      - name: Run native host tests
+        run: |
+          cmake -S app/src/main/cpp -B /tmp/androidsa-native-tests -DANDROIDSA_ENABLE_NATIVE_TESTS=ON
+          cmake --build /tmp/androidsa-native-tests --target client_state_test
+          ctest --test-dir /tmp/androidsa-native-tests --output-on-failure
+
+      - name: Run unit tests
+        run: ./gradlew --no-daemon :app:testDebugUnitTest --stacktrace
+
+      - name: Assemble app artifacts
+        run: ./gradlew --no-daemon :app:assemble --stacktrace
+
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unit-test-reports-${{ github.run_id }}
+          path: |
+            app/build/reports/tests/
+            app/build/test-results/
+          if-no-files-found: warn
