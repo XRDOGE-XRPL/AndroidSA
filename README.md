@@ -224,6 +224,8 @@ ANDROIDSA_GOOGLE_MAVEN_URL=http://127.0.0.1:38473/ ./gradlew :app:testDebugUnitT
 
 Die Standard-Konfiguration bleibt unverändert auf `google()`/`mavenCentral()`. Der Proxy wird nur verwendet, wenn `ANDROIDSA_GOOGLE_MAVEN_URL` oder `-Pandroidsa.google.maven.url=...` explizit gesetzt ist.
 
+Copilot-Cloud-Agent-Sitzungen starten denselben Proxy automatisch über `.github/workflows/copilot-setup-steps.yml`, damit Gradle-Auflösung bereits vor aktivierter Firewall auf den lokalen Mirror umgebogen wird.
+
 ### Root-Build-Verhalten
 
 Das Root-Projekt aktiviert `base` und verdrahtet:
@@ -245,6 +247,8 @@ Die Pipeline führt aus:
 6. `./gradlew --no-daemon :app:testDebugUnitTest --stacktrace` mit Retry
 7. `./gradlew --no-daemon :app:assemble --stacktrace` mit Retry
 8. Upload der Testreports als Artefakt
+
+Zusätzlich konfiguriert `.github/workflows/copilot-setup-steps.yml` Copilot-Cloud-Agent-Sitzungen vorab mit JDK 17, dem lokalen Google-Maven-Proxy und einem Gradle-Warmup, damit blockierte `dl.google.com`-Zugriffe keine Agent-Läufe abbrechen.
 
 ## Entwicklungsablauf
 

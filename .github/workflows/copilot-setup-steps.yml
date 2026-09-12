@@ -1,0 +1,63 @@
+name: Copilot Setup Steps
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - .github/workflows/copilot-setup-steps.yml
+      - settings.gradle.kts
+      - tools/google_maven_proxy.py
+  pull_request:
+    paths:
+      - .github/workflows/copilot-setup-steps.yml
+      - settings.gradle.kts
+      - tools/google_maven_proxy.py
+
+jobs:
+  copilot-setup-steps:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: gradle
+
+      - name: Prepare Gradle wrapper
+        run: chmod +x ./gradlew
+
+      - name: Start local Google Maven proxy
+        run: |
+          nohup python3 tools/google_maven_proxy.py --host 127.0.0.1 --port 38473 >/tmp/androidsa-google-maven-proxy.log 2>&1 &
+          echo $! >/tmp/androidsa-google-maven-proxy.pid
+
+          for attempt in $(seq 1 30); do
+            if curl --silent --fail http://127.0.0.1:38473/ >/dev/null; then
+              break
+            fi
+
+            if ! kill -0 "$(cat /tmp/androidsa-google-maven-proxy.pid)" 2>/dev/null; then
+              cat /tmp/androidsa-google-maven-proxy.log || true
+              exit 1
+            fi
+
+            sleep 1
+          done
+
+          curl --silent --fail http://127.0.0.1:38473/ >/dev/null
+          {
+            echo "ANDROIDSA_GOOGLE_MAVEN_URL=http://127.0.0.1:38473/"
+            echo "ANDROIDSA_GOOGLE_MAVEN_PROXY_LOG=/tmp/androidsa-google-maven-proxy.log"
+          } >> "$GITHUB_ENV"
+
+      - name: Warm Gradle plugin and dependency resolution
+        env:
+          ANDROIDSA_GOOGLE_MAVEN_URL: http://127.0.0.1:38473/
+        run: ./gradlew --no-daemon help --stacktrace --refresh-dependencies
