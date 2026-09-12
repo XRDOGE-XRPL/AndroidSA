@@ -24,9 +24,14 @@ Java_com_xrdoge_xrpl_androidsa_NativeBridge_nativeDispatchCommand(JNIEnv* env, j
     }
 
     const char* raw = env->GetStringUTFChars(command, nullptr);
-    const std::string commandText = raw == nullptr ? std::string() : std::string(raw);
-    if (raw != nullptr) {
-        env->ReleaseStringUTFChars(command, raw);
+    if (raw == nullptr) {
+        if (env->ExceptionCheck() == JNI_TRUE) {
+            env->ExceptionClear();
+        }
+        return false;
     }
+
+    const std::string commandText(raw);
+    env->ReleaseStringUTFChars(command, raw);
     return clientState().dispatchCommand(commandText);
 }

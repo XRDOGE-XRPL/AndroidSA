@@ -34,6 +34,17 @@ private val InitialOverview = NativeOverview(
     diagnostics = "Loading native state",
 )
 
+private fun nativeErrorOverview(message: String) = InitialOverview.copy(
+    transport = "unavailable",
+    connectionState = "error",
+    diagnostics = message,
+)
+
+private fun loadOverviewSafely(action: () -> NativeOverview): NativeOverview =
+    runCatching(action).getOrElse { error ->
+        nativeErrorOverview(error.message ?: "Failed to load native state")
+    }
+
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -51,7 +62,9 @@ private fun AndroidSAApp() {
     val scope = rememberCoroutineScope()
 
     LaunchedEffect(Unit) {
-        overview = withContext(Dispatchers.Default) { NativeBridge.overview() }
+        overview = withContext(Dispatchers.Default) {
+            loadOverviewSafely { NativeBridge.overview() }
+        }
     }
 
     Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
@@ -79,10 +92,12 @@ private fun AndroidSAApp() {
                     val currentOverview = overview
                     scope.launch {
                         overview = withContext(Dispatchers.Default) {
-                            NativeBridge.refresh() ?: currentOverview.copy(
-                                connectionState = "error",
-                                diagnostics = "Native command was rejected",
-                            )
+                            loadOverviewSafely {
+                                NativeBridge.refresh() ?: currentOverview.copy(
+                                    connectionState = "error",
+                                    diagnostics = "Native command was rejected",
+                                )
+                            }
                         }
                     }
                 },
