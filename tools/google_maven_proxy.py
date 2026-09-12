@@ -281,7 +281,9 @@ class MavenMirrorIndex:
     def ensure_artifact(self, request_path: str) -> Path | None:
         artifact_path = self.download_root / request_path
         if artifact_path.is_file():
-            return artifact_path
+            if self._parse_lfs_pointer(artifact_path) is None:
+                return artifact_path
+            artifact_path.unlink()
 
         metadata = self.mapping.get(request_path)
         if metadata is None:
