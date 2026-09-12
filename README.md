@@ -240,11 +240,12 @@ Die Pipeline führt aus:
 1. Checkout mit voller Historie
 2. JDK-17-Setup und Gradle-Cache
 3. Gradle-Setup und Wrapper-Validierung
-4. Warmup der Plugin- und Dependency-Auflösung mit Retry
-5. native Host-Tests via CMake/CTest
-6. `./gradlew --no-daemon :app:testDebugUnitTest --stacktrace` mit Retry
-7. `./gradlew --no-daemon :app:assemble --stacktrace` mit Retry
-8. Upload der Testreports als Artefakt
+4. optionaler Start des lokalen Google-Maven-Proxys, wenn `dl.google.com` nicht erreichbar ist
+5. Warmup der Plugin- und Dependency-Auflösung mit Retry
+6. native Host-Tests via CMake/CTest
+7. `./gradlew --no-daemon :app:testDebugUnitTest --stacktrace` mit Retry
+8. `./gradlew --no-daemon :app:assemble --stacktrace` mit Retry
+9. Upload der Testreports als Artefakt
 
 ## Entwicklungsablauf
 
