@@ -7,6 +7,7 @@ on:
       - .github/workflows/copilot-setup-steps.yml
       - "**/*.gradle.kts"
       - "**/gradle.properties"
+      - gradle/wrapper/gradle-wrapper.properties
       - gradle/libs.versions.toml
       - settings.gradle.kts
       - tools/google_maven_proxy.py
@@ -15,6 +16,7 @@ on:
       - .github/workflows/copilot-setup-steps.yml
       - "**/*.gradle.kts"
       - "**/gradle.properties"
+      - gradle/wrapper/gradle-wrapper.properties
       - gradle/libs.versions.toml
       - settings.gradle.kts
       - tools/google_maven_proxy.py

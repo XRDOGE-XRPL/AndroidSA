@@ -50,6 +50,57 @@ jobs:
       - name: Prepare Gradle wrapper
         run: chmod +x ./gradlew
 
+      - name: Enable local Google Maven proxy fallback
+        shell: bash
+        run: |
+          if [ -n "${ANDROIDSA_GOOGLE_MAVEN_URL:-}" ]; then
+            echo "ANDROIDSA_GOOGLE_MAVEN_URL already configured: ${ANDROIDSA_GOOGLE_MAVEN_URL}"
+            exit 0
+          fi
+
+          set +e
+          python3 - <<'PY'
+          import socket
+          import sys
+          import urllib.request
+
+          try:
+              socket.getaddrinfo("dl.google.com", 443)
+              with urllib.request.urlopen(
+                  "https://dl.google.com/android/repository/repository2-1.xml",
+                  timeout=20,
+              ) as response:
+                  if response.status >= 400:
+                      raise RuntimeError(f"Unexpected HTTP status: {response.status}")
+          except Exception as exc:
+              print(f"Google Maven probe failed: {exc}")
+              sys.exit(10)
+
+          print("Google Maven probe succeeded.")
+          PY
+          probe_status=$?
+          set -e
+
+          if [ "$probe_status" -eq 0 ]; then
+            exit 0
+          fi
+
+          nohup python3 tools/google_maven_proxy.py --host 127.0.0.1 --port 38473 \
+            >/tmp/androidsa-google-maven-proxy.log 2>&1 &
+          echo "$!" >/tmp/androidsa-google-maven-proxy.pid
+
+          for attempt in $(seq 1 20); do
+            if curl --silent --show-error --fail http://127.0.0.1:38473/ >/dev/null; then
+              echo "ANDROIDSA_GOOGLE_MAVEN_URL=http://127.0.0.1:38473/" >> "$GITHUB_ENV"
+              exit 0
+            fi
+            sleep 1
+          done
+
+          echo "Local Google Maven proxy did not become ready."
+          cat /tmp/androidsa-google-maven-proxy.log
+          exit 1
+
       - name: Warm Gradle plugin and dependency resolution (retry)
         run: |
           for attempt in 1 2 3; do
@@ -92,6 +143,13 @@ jobs:
             echo "Assemble failed (attempt $attempt), retrying with refreshed dependencies..."
             ./gradlew --no-daemon :app:assemble --stacktrace --refresh-dependencies
           done
+
+      - name: Stop local Google Maven proxy
+        if: always()
+        run: |
+          if [ -f /tmp/androidsa-google-maven-proxy.pid ]; then
+            kill "$(cat /tmp/androidsa-google-maven-proxy.pid)" || true
+          fi
 
       - name: Upload test reports
         if: always()

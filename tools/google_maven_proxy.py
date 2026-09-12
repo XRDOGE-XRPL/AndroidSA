@@ -6,9 +6,11 @@ import hashlib
 import json
 import os
 import shutil
+import subprocess
 import sys
 import tarfile
 import tempfile
+import zipfile
 from dataclasses import dataclass
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -40,6 +42,7 @@ class Donor:
 DEFAULT_DONORS = (
     Donor("nehemiaharchives", "lucene-kmp-gc", "9026b5f2b2b024b4b9ce553a971ddc51fd1e629d"),
     Donor("masudrana35362", "News-Apps-Using-Compose", "9436ab02bd4cfcc6e448bc68d27ea9ca675e6145"),
+    Donor("LexChien", "BabyGrowthApp", "637414782eff553f9fa82be22ccc83473e1e2095"),
 )
 
 TEXT_EXTENSIONS = {".module", ".pom", ".xml"}
@@ -112,6 +115,32 @@ class MavenMirrorIndex:
 
         return mapping
 
+    def _fallback_metadata(self, request_path: str) -> dict[str, str] | None:
+        suffix = Path(request_path).suffix.lower()
+        if suffix not in BINARY_EXTENSIONS:
+            return None
+
+        parts = request_path.split("/")
+        if len(parts) < 4:
+            return None
+
+        group_path = "/".join(parts[:-3])
+        module_name = parts[-3]
+        version = parts[-2]
+        filename = parts[-1]
+
+        for variant_suffix in ("-android", "-jvm"):
+            variant_module = f"{module_name}{variant_suffix}"
+            variant_prefix = f"{module_name}-{version}"
+            if not filename.startswith(variant_prefix):
+                continue
+            variant_filename = filename.replace(variant_prefix, f"{variant_module}-{version}", 1)
+            metadata = self.mapping.get(f"{group_path}/{variant_module}/{version}/{variant_filename}")
+            if metadata is not None:
+                return metadata
+
+        return None
+
     def _ensure_donor_source(self, donor: Donor) -> Path:
         destination = self.source_root / donor.cache_key
         if destination.is_dir():
@@ -158,9 +187,147 @@ class MavenMirrorIndex:
     @staticmethod
     def _download_to_file(url: str, destination: Path) -> None:
         destination.parent.mkdir(parents=True, exist_ok=True)
+        curl = shutil.which("curl")
+        if curl is not None:
+            subprocess.run(
+                [
+                    curl,
+                    "--silent",
+                    "--show-error",
+                    "--fail",
+                    "--location",
+                    "--user-agent",
+                    "AndroidSA Google Maven Proxy",
+                    "--output",
+                    str(destination),
+                    url,
+                ],
+                check=True,
+            )
+            return
+
         request = Request(url, headers={"User-Agent": "AndroidSA Google Maven Proxy"})
         with urlopen(request, timeout=60) as response, destination.open("wb") as handle:
             shutil.copyfileobj(response, handle)
+
+    @staticmethod
+    def _parse_lfs_pointer(path: Path) -> tuple[str, int] | None:
+        try:
+            contents = path.read_text(encoding="utf-8")
+        except UnicodeDecodeError:
+            return None
+
+        lines = contents.splitlines()
+        if len(lines) < 3 or lines[0] != "version https://git-lfs.github.com/spec/v1":
+            return None
+
+        oid_prefix = "oid sha256:"
+        size_prefix = "size "
+        oid_line = next((line for line in lines if line.startswith(oid_prefix)), None)
+        size_line = next((line for line in lines if line.startswith(size_prefix)), None)
+        if oid_line is None or size_line is None:
+            return None
+
+        return oid_line.removeprefix(oid_prefix), int(size_line.removeprefix(size_prefix))
+
+    def _download_lfs_object(self, donor: Donor, oid: str, size: int, destination: Path) -> None:
+        payload = json.dumps(
+            {
+                "operation": "download",
+                "transfers": ["basic"],
+                "objects": [{"oid": oid, "size": size}],
+            }
+        ).encode("utf-8")
+        request = Request(
+            f"https://github.com/{donor.owner}/{donor.repo}.git/info/lfs/objects/batch",
+            data=payload,
+            method="POST",
+            headers={
+                "Accept": "application/vnd.git-lfs+json",
+                "Content-Type": "application/vnd.git-lfs+json",
+                "User-Agent": "AndroidSA Google Maven Proxy",
+            },
+        )
+        with urlopen(request, timeout=60) as response:
+            batch_response = json.load(response)
+
+        href = batch_response["objects"][0]["actions"]["download"]["href"]
+        self._download_to_file(href, destination)
+
+    @staticmethod
+    def _patch_agp_plugin_jar(path: Path) -> None:
+        plugin_path = "com/android/build/gradle/AppPlugin.class"
+        marker_paths = {
+            "META-INF/gradle-plugins/com.android.application.properties": (
+                "implementation-class=com.android.build.gradle.AppPlugin\n"
+            ),
+            "META-INF/gradle-plugins/android.properties": (
+                "implementation-class=com.android.build.gradle.AppPlugin\n"
+            ),
+        }
+
+        with zipfile.ZipFile(path) as archive:
+            names = set(archive.namelist())
+            if plugin_path in names:
+                return
+            if not all(marker_path in names for marker_path in marker_paths):
+                return
+
+        javac = shutil.which("javac")
+        if javac is None:
+            raise RuntimeError("javac is required to patch the Android Gradle plugin jar")
+
+        gradle_jars = sorted(
+            jar
+            for lib_root in (Path.home() / ".gradle" / "wrapper" / "dists").glob("**/gradle-*/lib")
+            for jar in lib_root.rglob("*.jar")
+        )
+        if not gradle_jars:
+            raise RuntimeError("Gradle distribution jars are required to patch the Android Gradle plugin jar")
+        compile_classpath = os.pathsep.join(str(jar) for jar in gradle_jars)
+
+        with tempfile.TemporaryDirectory(prefix="androidsa-agp-patch-") as temp_dir:
+            temp_root = Path(temp_dir)
+            source_dir = temp_root / "src" / "com" / "android" / "build" / "gradle"
+            source_dir.mkdir(parents=True, exist_ok=True)
+            source_file = source_dir / "AppPlugin.java"
+            source_file.write_text(
+                """
+package com.android.build.gradle;
+
+public final class AppPlugin implements org.gradle.api.Plugin<org.gradle.api.Project> {
+    @Override
+    public void apply(org.gradle.api.Project project) {
+        project.getPluginManager().apply("com.android.internal.application");
+    }
+}
+""".strip()
+                + "\n",
+                encoding="utf-8",
+            )
+            classes_dir = temp_root / "classes"
+            classes_dir.mkdir(parents=True, exist_ok=True)
+            subprocess.run(
+                [
+                    javac,
+                    "-cp",
+                    compile_classpath,
+                    "-d",
+                    str(classes_dir),
+                    str(source_file),
+                ],
+                check=True,
+            )
+            compiled_class = classes_dir / plugin_path
+            patched_path = temp_root / "gradle-patched.jar"
+            with zipfile.ZipFile(path) as source, zipfile.ZipFile(patched_path, "w") as patched:
+                for entry in source.infolist():
+                    data = source.read(entry.filename)
+                    if entry.filename in marker_paths:
+                        data = marker_paths[entry.filename].encode("utf-8")
+                    patched.writestr(entry, data)
+                patched.write(compiled_class, plugin_path)
+            shutil.copyfile(patched_path, path)
 
     @staticmethod
     def _safe_extractall(archive: tarfile.TarFile, destination: Path) -> None:
@@ -173,9 +340,14 @@ class MavenMirrorIndex:
     def ensure_artifact(self, request_path: str) -> Path | None:
         artifact_path = self.download_root / request_path
         if artifact_path.is_file():
-            return artifact_path
+            if self._parse_lfs_pointer(artifact_path) is None:
+                return artifact_path
+            artifact_path.unlink()
 
         metadata = self.mapping.get(request_path)
+        if metadata is None:
+            metadata = self._fallback_metadata(request_path)
+
         if metadata is not None:
             donor = Donor(metadata["owner"], metadata["repo"], metadata["ref"])
             remote_path = metadata["path"]
@@ -189,7 +361,18 @@ class MavenMirrorIndex:
                 temp_path = Path(temp_file.name)
 
             try:
-                self._download_to_file(donor.file_url(remote_path, binary=binary), temp_path)
+                source_path = self.source_root / donor.cache_key / remote_path
+                if source_path.is_file():
+                    lfs_pointer = self._parse_lfs_pointer(source_path)
+                    if lfs_pointer is None:
+                        shutil.copyfile(source_path, temp_path)
+                    else:
+                        oid, size = lfs_pointer
+                        self._download_lfs_object(donor, oid, size, temp_path)
+                else:
+                    self._download_to_file(donor.file_url(remote_path, binary=binary), temp_path)
+                if request_path.startswith("com/android/tools/build/gradle/") and request_path.endswith(".jar"):
+                    self._patch_agp_plugin_jar(temp_path)
                 os.replace(temp_path, artifact_path)
                 return artifact_path
             except HTTPError as exc:
@@ -230,10 +413,10 @@ class MavenMirrorIndex:
                 temp_path.unlink(missing_ok=True)
                 raise
 
-        if saw_not_found:
-            return False
         if last_retryable_error is not None:
             raise last_retryable_error
+        if saw_not_found:
+            return False
         return False
 
 
@@ -253,6 +436,12 @@ class MirrorHandler(BaseHTTPRequestHandler):
         request_path = urlparse(self.path).path.lstrip("/")
         if not request_path:
             self._send_text(HTTPStatus.OK, "AndroidSA Google Maven proxy is running.\n", send_body)
+            return
+
+        synthetic_response = self._synthetic_response(request_path)
+        if synthetic_response is not None:
+            content_type, payload = synthetic_response
+            self._send_bytes(HTTPStatus.OK, content_type, payload, send_body)
             return
 
         if any(
@@ -277,21 +466,53 @@ class MirrorHandler(BaseHTTPRequestHandler):
             return
 
         data = artifact_path.read_bytes() if send_body else b""
-        self.send_response(HTTPStatus.OK)
-        self.send_header("Content-Length", str(artifact_path.stat().st_size))
-        self.send_header("Cache-Control", "public, max-age=3600")
-        self.end_headers()
-        if send_body:
-            self.wfile.write(data)
+        self._send_bytes(HTTPStatus.OK, "application/octet-stream", data, send_body, artifact_path.stat().st_size)
 
     def _send_text(self, status: HTTPStatus, message: str, send_body: bool) -> None:
         encoded = message.encode("utf-8")
+        self._send_bytes(status, "text/plain; charset=utf-8", encoded, send_body)
+
+    def _send_bytes(
+        self,
+        status: HTTPStatus,
+        content_type: str,
+        payload: bytes,
+        send_body: bool,
+        content_length: int | None = None,
+    ) -> None:
         self.send_response(status)
-        self.send_header("Content-Type", "text/plain; charset=utf-8")
-        self.send_header("Content-Length", str(len(encoded)))
+        self.send_header("Content-Type", content_type)
+        self.send_header("Content-Length", str(content_length if content_length is not None else len(payload)))
+        self.send_header("Cache-Control", "public, max-age=3600")
         self.end_headers()
         if send_body:
-            self.wfile.write(encoded)
+            self.wfile.write(payload)
+
+    @staticmethod
+    def _synthetic_response(request_path: str) -> tuple[str, bytes] | None:
+        marker_prefix = "com/android/application/com.android.application.gradle.plugin/"
+        if request_path.startswith(marker_prefix) and request_path.endswith(".pom"):
+            version = request_path.removeprefix(marker_prefix).split("/", 1)[0]
+            pom = f"""<project xmlns="http://maven.apache.org/POM/4.0.0"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>com.android.application</groupId>
+  <artifactId>com.android.application.gradle.plugin</artifactId>
+  <version>{version}</version>
+  <packaging>pom</packaging>
+  <dependencies>
+    <dependency>
+      <groupId>com.android.tools.build</groupId>
+      <artifactId>gradle</artifactId>
+      <version>{version}</version>
+    </dependency>
+  </dependencies>
+</project>
+""".encode("utf-8")
+            return "application/xml; charset=utf-8", pom
+
+        return None
 
 
 def main() -> int:

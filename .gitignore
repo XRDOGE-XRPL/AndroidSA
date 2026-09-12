@@ -9,4 +9,4 @@ local.properties
 .externalNativeBuild/
 .cxx/
 __pycache__/
-*.pyc
+*.py[cod]
