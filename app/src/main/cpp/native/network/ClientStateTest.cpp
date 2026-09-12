@@ -66,5 +66,9 @@ int main() {
         return 1;
     }
 
+    if (!expect(!state.dispatchCommand("ping\n"), "Commands with control characters should fail even if trim would remove them")) {
+        return 1;
+    }
+
     return 0;
 }
