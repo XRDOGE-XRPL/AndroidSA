@@ -5,9 +5,9 @@ Dieses Modul enthält die Android-Anwendung inklusive Compose-UI, JNI-Bridge, na
 ## Inhalt
 
 - `src/main/java/com/xrdoge/xrpl/androidsa/MainActivity.kt`  
-  Compose-UI, geführte Controls, Statusanzeige, Event-Log, Command-Eingabe und asynchrones Dispatching.
+  Compose-UI, geführte Controls, Statusanzeige, Event-Log, Command-Eingabe, anti-race Dispatching und Live-Metrik-Refresh bei aktiver Verbindung.
 - `src/main/java/com/xrdoge/xrpl/androidsa/NativeBridge.kt`  
-  JNI-Bridge, Command-Validierung, Parsing der nativen Summary und Event-Historie.
+  JNI-Bridge, Command-Validierung, Parsing/Normalisierung der nativen Summary und Event-Historie inkl. deterministischer Fehlerweitergabe.
 - `src/main/cpp/`  
   Native C++20-Komponenten inkl. CMake-Konfiguration.
 - `src/test/java/com/xrdoge/xrpl/androidsa/NativeBridgeTest.kt`  
