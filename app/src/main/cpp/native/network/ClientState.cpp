@@ -47,14 +47,15 @@ std::string ClientState::summary() {
 }
 
 bool ClientState::dispatchCommand(const std::string& command) {
+    if (containsInvalidSummaryCharacters(command)) {
+        return false;
+    }
+
     const auto sanitized = trim(command);
     if (sanitized.empty()) {
         return false;
     }
     if (sanitized.size() > kMaxCommandLength) {
-        return false;
-    }
-    if (containsInvalidSummaryCharacters(sanitized)) {
         return false;
     }
 

@@ -11,16 +11,17 @@ internal const val MaxNativeCommandLength = 64
 private const val NativeSummaryDelimiter = '|'
 
 internal fun requireValidNativeCommand(command: String): String {
+    require(command.none { it.code < 0x20 || it.code == 0x7F }) {
+        "Command must not contain control characters"
+    }
+    require(!command.contains(NativeSummaryDelimiter)) {
+        "Command must not contain '$NativeSummaryDelimiter'"
+    }
+
     val sanitized = command.trim()
     require(sanitized.isNotEmpty()) { "Command must not be blank" }
     require(sanitized.length <= MaxNativeCommandLength) {
         "Command must be at most $MaxNativeCommandLength characters"
-    }
-    require(sanitized.none { it.code < 0x20 || it.code == 0x7F }) {
-        "Command must not contain control characters"
-    }
-    require(!sanitized.contains(NativeSummaryDelimiter)) {
-        "Command must not contain '$NativeSummaryDelimiter'"
     }
 
     val normalized = sanitized.lowercase()
