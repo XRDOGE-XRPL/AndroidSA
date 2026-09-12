@@ -23,4 +23,14 @@ class NativeBridgeTest {
         assertEquals("ready", overview.connectionState)
         assertEquals("pipe|inside|diagnostics", overview.diagnostics)
     }
+
+    @Test
+    fun parseNativeOverviewUsesFallbacksForBlankSegments() {
+        val overview = parseNativeOverview("| | | ")
+
+        assertEquals("AndroidSA", overview.clientName)
+        assertEquals("unavailable", overview.transport)
+        assertEquals("offline", overview.connectionState)
+        assertEquals("No diagnostics available", overview.diagnostics)
+    }
 }

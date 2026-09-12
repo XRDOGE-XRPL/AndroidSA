@@ -10,10 +10,10 @@ data class NativeOverview(
 internal fun parseNativeOverview(summary: String): NativeOverview {
     val sections = summary.split('|', limit = 4)
     return NativeOverview(
-        clientName = sections.getOrElse(0) { "AndroidSA" },
-        transport = sections.getOrElse(1) { "unavailable" },
-        connectionState = sections.getOrElse(2) { "offline" },
-        diagnostics = sections.getOrElse(3) { "No diagnostics available" },
+        clientName = sections.getOrElse(0) { "AndroidSA" }.ifBlank { "AndroidSA" },
+        transport = sections.getOrElse(1) { "unavailable" }.ifBlank { "unavailable" },
+        connectionState = sections.getOrElse(2) { "offline" }.ifBlank { "offline" },
+        diagnostics = sections.getOrElse(3) { "No diagnostics available" }.ifBlank { "No diagnostics available" },
     )
 }
 
