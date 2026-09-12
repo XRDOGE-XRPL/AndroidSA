@@ -207,7 +207,6 @@ class MavenMirrorIndex:
 
     def _download_from_google_maven(self, request_path: str, artifact_path: Path) -> bool:
         artifact_path.parent.mkdir(parents=True, exist_ok=True)
-        last_error: Exception | None = None
 
         for base_url in GOOGLE_MAVEN_BASE_URLS:
             with tempfile.NamedTemporaryFile(delete=False, dir=str(artifact_path.parent)) as temp_file:
@@ -220,16 +219,11 @@ class MavenMirrorIndex:
                 temp_path.unlink(missing_ok=True)
                 if exc.code == HTTPStatus.NOT_FOUND:
                     continue
-                last_error = exc
-            except URLError as exc:
+            except URLError:
                 temp_path.unlink(missing_ok=True)
-                last_error = exc
-            except Exception as exc:
+            except Exception:
                 temp_path.unlink(missing_ok=True)
-                last_error = exc
-
-        if last_error is not None:
-            raise last_error
+ 
         return False
 
 
