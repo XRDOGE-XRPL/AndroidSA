@@ -212,6 +212,18 @@ cmake --build /tmp/androidsa-native-tests --target client_state_test
 ctest --test-dir /tmp/androidsa-native-tests --output-on-failure
 ```
 
+### Lokaler Google-Maven-Fallback für blockierte Umgebungen
+
+Wenn `dl.google.com` lokal nicht aufgelöst oder durch die Laufzeitumgebung blockiert wird, kann ein lokaler Mirror-Proxy für Google-Maven-Artefakte gestartet werden:
+
+```bash
+python3 tools/google_maven_proxy.py --port 38473
+ANDROIDSA_GOOGLE_MAVEN_URL=http://127.0.0.1:38473/ ./gradlew check build
+ANDROIDSA_GOOGLE_MAVEN_URL=http://127.0.0.1:38473/ ./gradlew :app:testDebugUnitTest :app:assemble
+```
+
+Die Standard-Konfiguration bleibt unverändert auf `google()`/`mavenCentral()`. Der Proxy wird nur verwendet, wenn `ANDROIDSA_GOOGLE_MAVEN_URL` oder `-Pandroidsa.google.maven.url=...` explizit gesetzt ist.
+
 ### Root-Build-Verhalten
 
 Das Root-Projekt aktiviert `base` und verdrahtet:
@@ -245,7 +257,7 @@ Die Pipeline führt aus:
 ## Troubleshooting
 
 - **JNI-Library lädt nicht:** sicherstellen, dass `androidsa` erfolgreich gebaut wurde
-- **Gradle-Abhängigkeiten schlagen fehl:** Google Maven und Maven Central Erreichbarkeit prüfen
+- **Gradle-Abhängigkeiten schlagen fehl:** Google Maven und Maven Central Erreichbarkeit prüfen; in blockierten Agent-Umgebungen den lokalen Mirror via `tools/google_maven_proxy.py` und `ANDROIDSA_GOOGLE_MAVEN_URL=http://127.0.0.1:38473/` verwenden
 - **Native Tests schlagen fehl:** Build-Verzeichnis unter `/tmp/androidsa-native-tests` neu erzeugen
 - **Command wird abgelehnt:** Syntax, Maximallänge, verbotene Zeichen und Wertebereich prüfen
 - **Keine Paketereignisse sichtbar:** Connect- oder Simulations-Commands erneut auslösen, damit neue UDP-Probes erzeugt werden

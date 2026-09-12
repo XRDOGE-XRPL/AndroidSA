@@ -1,6 +1,27 @@
 pluginManagement {
     repositories {
-        google()
+        val androidSaGoogleMavenUrl = providers.gradleProperty("androidsa.google.maven.url")
+            .orElse(providers.environmentVariable("ANDROIDSA_GOOGLE_MAVEN_URL"))
+            .orNull
+        if (androidSaGoogleMavenUrl.isNullOrBlank()) {
+            google {
+                content {
+                    includeGroupByRegex("androidx.*")
+                    includeGroupByRegex("com\\.android.*")
+                    includeGroupByRegex("com\\.google.*")
+                }
+            }
+        } else {
+            maven(url = uri(androidSaGoogleMavenUrl)) {
+                name = "AndroidSaGoogleMirror"
+                isAllowInsecureProtocol = androidSaGoogleMavenUrl.startsWith("http://")
+                content {
+                    includeGroupByRegex("androidx.*")
+                    includeGroupByRegex("com\\.android.*")
+                    includeGroupByRegex("com\\.google.*")
+                }
+            }
+        }
         mavenCentral()
         gradlePluginPortal()
     }
@@ -21,7 +42,28 @@ pluginManagement {
 dependencyResolutionManagement {
     repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
     repositories {
-        google()
+        val androidSaGoogleMavenUrl = providers.gradleProperty("androidsa.google.maven.url")
+            .orElse(providers.environmentVariable("ANDROIDSA_GOOGLE_MAVEN_URL"))
+            .orNull
+        if (androidSaGoogleMavenUrl.isNullOrBlank()) {
+            google {
+                content {
+                    includeGroupByRegex("androidx.*")
+                    includeGroupByRegex("com\\.android.*")
+                    includeGroupByRegex("com\\.google.*")
+                }
+            }
+        } else {
+            maven(url = uri(androidSaGoogleMavenUrl)) {
+                name = "AndroidSaGoogleMirror"
+                isAllowInsecureProtocol = androidSaGoogleMavenUrl.startsWith("http://")
+                content {
+                    includeGroupByRegex("androidx.*")
+                    includeGroupByRegex("com\\.android.*")
+                    includeGroupByRegex("com\\.google.*")
+                }
+            }
+        }
         mavenCentral()
     }
 }
