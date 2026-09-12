@@ -152,10 +152,10 @@ Die CI-Pipeline:
 3. Gradle Setup + Wrapper Validation
 4. Native Host-Tests (`client_state_test` via CMake/CTest)
 5. Unit-Tests (`:app:testDebugUnitTest`)
-6. Build mit:
+6. Assemble mit:
 
 ```bash
-./gradlew --no-daemon check build -x :app:testDebugUnitTest --stacktrace
+./gradlew --no-daemon :app:assemble --stacktrace
 ```
 
 Zusätzlich werden Testreports als CI-Artefakt hochgeladen.

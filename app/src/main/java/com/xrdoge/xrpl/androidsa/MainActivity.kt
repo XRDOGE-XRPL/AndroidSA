@@ -71,14 +71,13 @@ private fun AndroidSAApp() {
     var isLoading by remember { mutableStateOf(false) }
     var commandJob by remember { mutableStateOf<Job?>(null) }
     val scope = rememberCoroutineScope()
-    val isCommandDispatchInProgress = commandJob?.isActive == true
     val commandError = remember(commandText) {
         runCatching {
             requireValidNativeCommand(commandText)
         }.exceptionOrNull()?.message
     }
     val dispatchCommand: (String) -> Unit = dispatch@{ commandToDispatch ->
-        if (isLoading || isCommandDispatchInProgress) {
+        if (isLoading || commandJob?.isActive == true) {
             return@dispatch
         }
 
@@ -173,7 +172,7 @@ private fun AndroidSAApp() {
                 QuickCommandButton(
                     label = "Ping",
                     command = "ping",
-                    enabled = !isLoading && !isCommandDispatchInProgress,
+                    enabled = !isLoading && commandJob?.isActive != true,
                 ) { command ->
                     commandText = command
                     dispatchCommand(command)
@@ -181,7 +180,7 @@ private fun AndroidSAApp() {
                 QuickCommandButton(
                     label = "Connect",
                     command = "connect",
-                    enabled = !isLoading && !isCommandDispatchInProgress,
+                    enabled = !isLoading && commandJob?.isActive != true,
                 ) { command ->
                     commandText = command
                     dispatchCommand(command)
@@ -189,7 +188,7 @@ private fun AndroidSAApp() {
                 QuickCommandButton(
                     label = "Status",
                     command = "status",
-                    enabled = !isLoading && !isCommandDispatchInProgress,
+                    enabled = !isLoading && commandJob?.isActive != true,
                 ) { command ->
                     commandText = command
                     dispatchCommand(command)
@@ -202,7 +201,7 @@ private fun AndroidSAApp() {
                 QuickCommandButton(
                     label = "Disconnect",
                     command = "disconnect",
-                    enabled = !isLoading && !isCommandDispatchInProgress,
+                    enabled = !isLoading && commandJob?.isActive != true,
                 ) { command ->
                     commandText = command
                     dispatchCommand(command)
@@ -210,7 +209,7 @@ private fun AndroidSAApp() {
                 QuickCommandButton(
                     label = "Reset",
                     command = "reset",
-                    enabled = !isLoading && !isCommandDispatchInProgress,
+                    enabled = !isLoading && commandJob?.isActive != true,
                 ) { command ->
                     commandText = command
                     dispatchCommand(command)
@@ -218,14 +217,14 @@ private fun AndroidSAApp() {
                 QuickCommandButton(
                     label = "Diag OK",
                     command = "diagnostics:ok",
-                    enabled = !isLoading && !isCommandDispatchInProgress,
+                    enabled = !isLoading && commandJob?.isActive != true,
                 ) { command ->
                     commandText = command
                     dispatchCommand(command)
                 }
             }
             Button(
-                enabled = !isLoading && !isCommandDispatchInProgress && commandError == null,
+                enabled = !isLoading && commandJob?.isActive != true && commandError == null,
                 onClick = {
                     dispatchCommand(commandText)
                 },
