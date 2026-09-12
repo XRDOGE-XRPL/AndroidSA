@@ -1,28 +1,38 @@
 # Release Checklist
 
-## 1) Versions- und Inhaltsprüfung
+## 1) Inhalt und Dokumentation
 
-- [ ] `CHANGELOG.md` (`Unreleased`) enthält alle relevanten Änderungen
-- [ ] Release-Umfang (Features/Fixes/Doku) ist mit dem Team abgestimmt
-- [ ] Bekannte Risiken/Offene Punkte sind dokumentiert
+- [ ] `CHANGELOG.md` unter `Unreleased` vollständig aktualisiert
+- [ ] `README.md`, `app/README.md` und `app/src/main/cpp/README.md` spiegeln den aktuellen Stand wider
+- [ ] `Projectvorstellungs.md` wurde bei relevanten Produktänderungen mitgepflegt
+- [ ] Bekannte Risiken, offene Punkte und Einschränkungen sind dokumentiert
 
 ## 2) Technische Validierung
 
-- [ ] Lokaler Build erfolgreich: `./gradlew build`
-- [ ] Lokale Checks erfolgreich: `./gradlew check build`
-- [ ] Unit-Tests erfolgreich: `./gradlew :app:testDebugUnitTest`
+- [ ] Gradle Wrapper ist ausführbar (`chmod +x ./gradlew`)
+- [ ] Gesamtbuild erfolgreich: `./gradlew build`
+- [ ] Checks erfolgreich: `./gradlew check build`
+- [ ] App-Unit-Tests erfolgreich: `./gradlew :app:testDebugUnitTest`
+- [ ] Native Host-Tests erfolgreich (`client_state_test` via CMake/CTest)
 - [ ] CI-Workflow `android-background-build.yml` ist grün
-- [ ] CI-Artefakte (Testreports) wurden geprüft
+- [ ] CI-Artefakte und Testreports wurden geprüft
 
-## 3) Sicherheits- und Qualitätsprüfung
+## 3) Funktions- und Qualitätsprüfung
 
-- [ ] Secret-Scan auf geänderten Dateien durchgeführt
-- [ ] Command-Validierungsregeln (`transport:<value>`, `diagnostics:<value>`) bleiben eingehalten
-- [ ] Keine unerwünschten Änderungen außerhalb des Release-Scopes
+- [ ] Summary-Format zwischen Kotlin und C++ ist konsistent
+- [ ] Command-Regeln (`transport`, `connect`, `player`, `latency`, `diagnostics`, `simulate`, `fail`) bleiben synchron
+- [ ] UI zeigt Status, Diagnostics, Server-/Playerprofil und Runtime-Metriken korrekt an
+- [ ] Keine unerwünschten Änderungen außerhalb des Release-Scopes enthalten
 
-## 4) Veröffentlichung
+## 4) Sicherheitsprüfung
+
+- [ ] Secret-Scan auf allen geänderten Dateien durchgeführt
+- [ ] Keine Secrets oder Zugangsdaten im Repository enthalten
+- [ ] Dokumentierte Commands und Beispiele enthalten keine sensiblen Produktionsdaten
+
+## 5) Veröffentlichung
 
 - [ ] Release Notes aus `CHANGELOG.md` erstellt
-- [ ] Versionskennung/Tag gesetzt
-- [ ] Release in Zielsystem veröffentlicht
+- [ ] Versionskennung und Tag gesetzt
+- [ ] Release im Zielsystem veröffentlicht
 - [ ] Post-Release-Sanity-Checks durchgeführt

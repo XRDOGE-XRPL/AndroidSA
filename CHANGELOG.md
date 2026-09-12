@@ -16,6 +16,7 @@ Alle relevanten Änderungen dieses Projekts werden in dieser Datei dokumentiert.
   - `fail:<reason>` für reproduzierbare Fehlerzustände
 - Geführte Compose-Steuerung für Server, Spieler, Transport, Latenz, Diagnostics und Event-Ansicht.
 - JNI-Event-Log-Bridge über `nativeGetRecentEvents()`.
+- `Projectvorstellungs.md` als kompakte, deutschsprachige Projektvorstellung für Stakeholder und neue Mitwirkende.
 
 ### Changed
 
@@ -23,7 +24,7 @@ Alle relevanten Änderungen dieses Projekts werden in dieser Datei dokumentiert.
 - Command-Validierung in Kotlin erweitert auf `connect:<server>`, `player:<name>`, `latency:<ms>`, `simulate:<value>` und `fail:<reason>`.
 - Native Command-Verarbeitung in C++ erweitert um reichere Zustandsübergänge, Statistiken und Event-Aufzeichnung.
 - Kotlin- und Native-Tests decken jetzt Parsing, Event-Logik und neue Commands ab.
-- Dokumentation für Architektur, Commands und Laufzeitverhalten erweitert.
+- Dokumentation für Architektur, Commands, UI-Flows, Laufzeitverhalten und Release-Prozess umfassend erweitert.
 - Native Paket- und Verbindungsstatistiken werden für zentrale Flows jetzt über reale UDP-`sendto`/`recvfrom`-Operationen statt reinem Zähler-Mocking erhoben.
 - Native Event-Historie enthält dekodierte RakNet/Open:MP-orientierte Paketereignisse aus dem Bytestream-Pfad (inkl. RPC-Wrapper-Erkennung).
 - NativeBridge normalisiert Snapshot-Daten robuster und propagiert native Fehlerdiagnostik deterministisch in die JVM/UI, wenn Dispatches scheitern.

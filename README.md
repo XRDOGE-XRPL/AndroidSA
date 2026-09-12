@@ -1,200 +1,254 @@
 # AndroidSA
 
-AndroidSA ist eine Android-Basis für einen SA:MP / Open:MP-orientierten Client mit klarer Trennung zwischen Compose-UI, Kotlin/JNI-Bridge und nativer C++-Laufzeit.
+AndroidSA ist ein Android-Projekt für einen SA:MP- / Open:MP-orientierten Client-Prototypen. Das Repository kombiniert eine Jetpack-Compose-Oberfläche, eine Kotlin/JNI-Bridge und einen nativen C++20-Kern, um Verbindungsstatus, Serverprofile, Diagnosemeldungen und simulierten Netzwerkverkehr gemeinsam abzubilden.
 
 ## Inhalt
 
-- [Projektziel](#projektziel)
+- [Projektüberblick](#projektüberblick)
+- [Ziele](#ziele)
 - [Architektur](#architektur)
 - [Repository-Struktur](#repository-struktur)
-- [Voraussetzungen](#voraussetzungen)
-- [Schnellstart](#schnellstart)
-- [Build- und Testbefehle](#build--und-testbefehle)
+- [Funktionsumfang](#funktionsumfang)
 - [Native Command-Spezifikation](#native-command-spezifikation)
-- [Erweiterter Laufzeitstatus](#erweiterter-laufzeitstatus)
-- [UI- und Laufzeitverhalten](#ui--und-laufzeitverhalten)
-- [CI](#ci)
-- [Release-Management](#release-management)
+- [Build, Tests und CI](#build-tests-und-ci)
+- [Entwicklungsablauf](#entwicklungsablauf)
 - [Troubleshooting](#troubleshooting)
 - [Lizenz](#lizenz)
 
-## Projektziel
+## Projektüberblick
 
-Das Projekt stellt ein erweiterbares Grundgerüst bereit, um Multiplayer-Logik auf Android kontrolliert über eine Kotlin/JNI-Schicht mit nativen Komponenten zu verbinden.
+Die App visualisiert einen nativen Laufzeitzustand als Android-Oberfläche. Nutzer können Serverprofile verwalten, geführte Commands auslösen, manuelle Commands an die JNI-Bridge senden und die daraus resultierenden Status-, Statistik- und Eventdaten direkt beobachten.
+
+Die Standarddarstellung umfasst:
+
+- Client-Name und aktiven Transport
+- Verbindungszustand und Diagnostik
+- Server- und Spielerprofil
+- Latenz, Paket-Zähler und Verbindungsversuche
+- letzte ausgeführte Aktion
+- begrenzte Event-Historie aus dem nativen Layer
+
+## Ziele
+
+- Android-Grundgerüst für eine spätere SA:MP- / Open:MP-Integration bereitstellen
+- UI-, Bridge- und Native-Logik klar voneinander trennen
+- JNI-Kommunikation mit deterministischer Command-Validierung absichern
+- Netzwerknahe Zustandswechsel und Telemetrie reproduzierbar simulieren
+- Build-, Test- und Release-Abläufe nachvollziehbar dokumentieren
 
 ## Architektur
 
-### Layer 1 – Android UI (Jetpack Compose)
+### 1. Android UI (Jetpack Compose)
 
-- Einstieg: `app/src/main/java/com/xrdoge/xrpl/androidsa/MainActivity.kt`
-- Oberfläche zeigt:
-  - Client-Name
-  - aktiven Transport
-  - Verbindungszustand
-  - Server- und Spielerprofil
-  - Laufzeitstatistiken
-  - Diagnose- und Event-Ansicht
-- Geführte Eingaben + Buttons senden native Commands über die Bridge.
+Datei: `/home/runner/work/AndroidSA/AndroidSA/app/src/main/java/com/xrdoge/xrpl/androidsa/MainActivity.kt`
 
-### Layer 2 – Kotlin/JNI-Bridge
+Die Compose-Oberfläche stellt mehrere Funktionsbereiche bereit:
 
-- Datei: `app/src/main/java/com/xrdoge/xrpl/androidsa/NativeBridge.kt`
-- Aufgaben:
-  - Laden der nativen Bibliothek `androidsa`
-  - Validierung von Commands vor JNI-Dispatch
-  - Parsen der nativen Summary
-  - Parsen der nativen Event-Historie in einen gemeinsamen Snapshot
+- Session-Überblick mit Transport, Connection State, Diagnostics, Server und Player
+- Runtime-Statistiken für Latenz, TX/RX-Pakete, Reconnect-Versuche und letzten Command
+- Server-Browser mit vordefinierten und benutzerdefinierten Serverprofilen
+- Guided Controls für Connect, Reconnect, Disconnect, Ping, Player, Transport, Latenz, Diagnostics und Reset
+- manuelle Command-Eingabe mit sofortiger Validierungsrückmeldung
+- Anzeige der letzten nativen Events
 
-### Layer 3 – Native C++20-Laufzeit
+Wichtige UI-Eigenschaften:
 
-- Einstieg: `app/src/main/cpp/native-lib.cpp`
-- Zustand/Command-Dispatch: `app/src/main/cpp/native/network/ClientState.*`
-- Logging: `app/src/main/cpp/native/logging/Logger.*`
-- Build über CMake in `app/src/main/cpp/CMakeLists.txt`
+- Snapshot wird beim Start asynchron geladen
+- parallele Command-Dispatches werden per `Mutex` blockiert
+- bei aktiver Verbindung werden Metriken zyklisch nachgeladen
+- lokale Validierungsfehler werden direkt als Fehler-Snapshot eingeblendet
+
+### 2. Kotlin/JNI-Bridge
+
+Datei: `/home/runner/work/AndroidSA/AndroidSA/app/src/main/java/com/xrdoge/xrpl/androidsa/NativeBridge.kt`
+
+Die Bridge ist für folgende Aufgaben verantwortlich:
+
+- Laden der nativen Bibliothek `androidsa`
+- Validierung und Normalisierung eingehender Commands
+- Parsen des nativen Summary-Formats
+- Parsen und Begrenzen der nativen Event-Historie
+- Vereinheitlichung von Fehlerzuständen, wenn Diagnostics auf native Fehler hindeuten
+
+### 3. Nativer C++20-Layer
+
+Dateien:
+
+- `/home/runner/work/AndroidSA/AndroidSA/app/src/main/cpp/native-lib.cpp`
+- `/home/runner/work/AndroidSA/AndroidSA/app/src/main/cpp/native/network/ClientState.h`
+- `/home/runner/work/AndroidSA/AndroidSA/app/src/main/cpp/native/network/ClientState.cpp`
+- `/home/runner/work/AndroidSA/AndroidSA/app/src/main/cpp/native/logging/Logger.h`
+- `/home/runner/work/AndroidSA/AndroidSA/app/src/main/cpp/native/logging/Logger.cpp`
+
+Der Native-Layer hält den Laufzeitzustand thread-sicher und stellt JNI-Einstiegspunkte für Summary, Event-Log und Command-Dispatch bereit. Netzwerknahe Abläufe werden über einen Loopback-UDP-Flow simuliert. Eingehende Probe-Pakete werden dekodiert und als Events protokolliert.
 
 ## Repository-Struktur
 
 ```text
 AndroidSA/
-├── app/
-│   ├── src/main/java/com/xrdoge/xrpl/androidsa/
-│   │   ├── MainActivity.kt
-│   │   └── NativeBridge.kt
-│   ├── src/main/cpp/
-│   │   ├── CMakeLists.txt
-│   │   ├── native-lib.cpp
-│   │   └── native/
-│   │       ├── logging/Logger.*
-│   │       └── network/ClientState.*
-│   └── src/test/java/com/xrdoge/xrpl/androidsa/NativeBridgeTest.kt
 ├── .github/workflows/android-background-build.yml
+├── CHANGELOG.md
+├── Projectvorstellungs.md
+├── README.md
+├── docs/
+│   └── RELEASE_CHECKLIST.md
+├── app/
+│   ├── README.md
+│   ├── build.gradle.kts
+│   └── src/
+│       ├── main/
+│       │   ├── AndroidManifest.xml
+│       │   ├── cpp/
+│       │   │   ├── README.md
+│       │   │   ├── CMakeLists.txt
+│       │   │   ├── native-lib.cpp
+│       │   │   └── native/
+│       │   │       ├── logging/
+│       │   │       └── network/
+│       │   ├── java/com/xrdoge/xrpl/androidsa/
+│       │   │   ├── MainActivity.kt
+│       │   │   └── NativeBridge.kt
+│       │   └── res/values/strings.xml
+│       └── test/java/com/xrdoge/xrpl/androidsa/
+│           └── NativeBridgeTest.kt
 ├── build.gradle.kts
+├── gradle.properties
+├── gradlew
 └── settings.gradle.kts
 ```
 
-## Voraussetzungen
+## Funktionsumfang
 
-- JDK 17
-- Android SDK 34+
-- minSdk 26
-- Android NDK 27.x
-- CMake 3.22.1+
-- unterstützte ABIs: `arm64-v8a`, `armeabi-v7a`
+### Laufzeitdaten aus dem nativen Layer
 
-## Schnellstart
-
-```bash
-git clone https://github.com/XRDOGE-XRPL/AndroidSA.git
-cd AndroidSA
-chmod +x ./gradlew
-./gradlew build
-```
-
-## Build- und Testbefehle
-
-- Gesamtbuild: `./gradlew build`
-- Checks + Build: `./gradlew check build`
-- App-spezifisch: `./gradlew :app:build`
-- App-Checks: `./gradlew :app:check`
-- Unit-Tests: `./gradlew :app:testDebugUnitTest`
-
-Hinweis: Das Root-Projekt verdrahtet `build` und `check` auf `:app:build` bzw. `:app:check`.
-
-## Native Command-Spezifikation
-
-### Unterstützte Commands
-
-- `ping` → Zustand wird `ready`
-- `connect` → verbindet mit dem aktuell gespeicherten Serverprofil
-- `connect:<server>` → setzt Serverprofil und verbindet direkt
-- `reconnect` → erneuter Verbindungsaufbau zum gespeicherten Server
-- `disconnect` → Zustand wird `disconnected`
-- `reset` → Transport/Zustand/Statistiken/Event-Historie auf Initialwerte
-- `status` → erzeugt einen Diagnose-Snapshot ohne Zustandswechsel
-- `transport:<name>` → aktiven Transport wechseln
-- `player:<name>` → aktives Spielerprofil setzen
-- `latency:<ms>` → Latenz zu Testzwecken überschreiben
-- `simulate:rx` / `simulate:tx` → eingehenden bzw. ausgehenden Traffic simulieren
-- `diagnostics:<text>` → setzt eine manuelle Diagnostikmeldung
-- `fail:<reason>` → simuliert einen Fehlerzustand
-
-### Validierungsregeln (Kotlin + Native)
-
-- Command wird getrimmt und darf nicht leer sein.
-- Maximale Länge: 64 Zeichen.
-- Keine Steuerzeichen erlaubt.
-- Zeichen `|` ist verboten (Schutz des Summary-Formats).
-- `transport`, `connect:<server>`, `player:<name>`, `latency:<ms>`, `simulate:<value>` und `fail:<reason>` nutzen exakte `keyword:<value>`-Syntax ohne Leerzeichen vor `:`.
-- `diagnostics:<value>` nutzt exakte `keyword:<value>`-Syntax ohne Leerzeichen vor `:`.
-- `simulate` akzeptiert nur `rx` oder `tx`.
-- `latency` akzeptiert nur nicht-negative Integerwerte.
-
-### Summary-Format aus Native Layer
-
-Die native Summary wird als Pipe-separierter String mit erweiterten Feldern geliefert:
+Die native Summary transportiert aktuell elf Felder:
 
 ```text
 AndroidSA|<transport>|<state>|<diagnostics>|<server>|<player>|<latencyMs>|<packetsSent>|<packetsReceived>|<connectionAttempts>|<lastCommand>
 ```
 
-Die Kotlin-Seite nutzt Fallbacks für fehlende/leere Segmente und setzt ungültige Zahlenfelder auf `0` zurück.
+Die Kotlin-Seite ergänzt Fallback-Werte, wenn Segmente fehlen, leer sind oder numerische Werte ungültig bleiben.
 
-## Erweiterter Laufzeitstatus
+### Server- und Session-Verhalten
 
-Der Native-State hält zusätzlich zu Transport, State und Diagnostics nun fest:
+- Standard-Serverprofile: `Demo EU` und `Local Dev`
+- benutzerdefinierte Serverprofile können in der UI ergänzt und wieder entfernt werden
+- `connect` nutzt das aktuell gespeicherte Serverprofil
+- `connect:<server>` setzt das Serverprofil und verbindet direkt
+- `reconnect` verwendet die zuletzt aktive Serveradresse
+- `reset` stellt Transport, Diagnostics, Profile, Statistiken und Event-Historie auf Ausgangswerte zurück
 
-- aktives Serverprofil
-- Spielerprofil
-- Latenz
-- gesendete und empfangene Paket-Zähler
-- Anzahl der Verbindungsversuche
-- zuletzt akzeptierter Command
-- begrenzte Event-Historie für UI und Debugging
+### Statistik- und Event-Verhalten
 
-## UI- und Laufzeitverhalten
+- `packetsSent` und `packetsReceived` werden über reale `sendto`- und `recvfrom`-Aufrufe erhöht
+- empfangene UDP-Probes werden als RakNet-/Open:MP-orientierte Events beschrieben
+- die UI zeigt die jüngsten Events; Kotlin kappt auf 48 Einträge, der native State hält eine kompakte Historie
 
-- Beim App-Start wird ein kompletter Snapshot aus Summary + Event-Historie asynchron geladen.
-- Die UI zeigt getrennte Bereiche für Session-Überblick, Laufzeitstatistiken, geführte Controls, manuelle Commands und Events.
-- Während laufender Operationen sind Eingaben und Buttons deaktiviert.
-- Fehler aus Bridge/Native werden im Diagnostics-Feld und in der Event-Liste sichtbar.
-- Command-Ausführung ist gegen paralleles Mehrfach-Dispatch abgesichert.
+## Native Command-Spezifikation
 
-## CI
+### Unterstützte Commands
 
-Workflow: `.github/workflows/android-background-build.yml`
+- `ping`
+- `connect`
+- `connect:<server>`
+- `reconnect`
+- `disconnect`
+- `reset`
+- `status`
+- `transport:<name>`
+- `player:<name>`
+- `latency:<ms>`
+- `simulate:rx`
+- `simulate:tx`
+- `diagnostics:<text>`
+- `fail:<reason>`
 
-Die CI-Pipeline:
+### Validierungsregeln
 
-1. Checkout (`actions/checkout@v4`)
-2. JDK 17 + Gradle Cache (`actions/setup-java@v4`)
-3. Gradle Setup + Wrapper Validation
-4. Gradle-Warmup mit Retry (`help --refresh-dependencies`)
-5. Native Host-Tests (`client_state_test` via CMake/CTest)
-6. Unit-Tests (`:app:testDebugUnitTest`) mit Retry bei transienten Auflösungsfehlern
-7. Assemble mit Retry:
+Diese Regeln gelten in Kotlin und im nativen Layer:
+
+- der Command wird getrimmt und darf nicht leer sein
+- maximale Länge: `64` Zeichen
+- keine Steuerzeichen
+- `|` ist verboten
+- wertbasierte Commands müssen die exakte Form `keyword:<value>` nutzen
+- `latency:<ms>` akzeptiert nur nicht-negative Integer
+- `simulate:<value>` akzeptiert nur `rx` oder `tx`
+
+### Typische Zustandsänderungen
+
+- `ping` setzt den State auf `ready`
+- `connect` und `connect:<server>` setzen den State auf `connected`
+- `disconnect` setzt den State auf `disconnected`
+- `fail:<reason>` setzt den State auf `error`
+- `status` erzeugt einen Diagnose-Snapshot ohne Profilwechsel
+
+## Build, Tests und CI
+
+### Voraussetzungen
+
+- JDK 17
+- Android SDK 34
+- minSdk 26
+- Android NDK `27.3.13750724`
+- CMake 3.22.1+ (Android-Gradle-Konfiguration nutzt 3.31.5)
+
+### Lokale Befehle
 
 ```bash
-./gradlew --no-daemon :app:assemble --stacktrace
+chmod +x ./gradlew
+./gradlew build
+./gradlew check build
+./gradlew :app:build
+./gradlew :app:check
+./gradlew :app:testDebugUnitTest
 ```
 
-Zusätzlich werden Testreports als CI-Artefakt hochgeladen.
+Zusätzlich für native Host-Tests:
 
-## Release-Management
+```bash
+cmake -S app/src/main/cpp -B /tmp/androidsa-native-tests -DANDROIDSA_ENABLE_NATIVE_TESTS=ON
+cmake --build /tmp/androidsa-native-tests --target client_state_test
+ctest --test-dir /tmp/androidsa-native-tests --output-on-failure
+```
 
-- Changelog: `CHANGELOG.md`
-- Checkliste: `docs/RELEASE_CHECKLIST.md`
-- Empfohlener Ablauf:
-  1. `CHANGELOG.md` unter `Unreleased` aktualisieren
-  2. lokale Checks/Build ausführen
-  3. CI-Ergebnisse und Testreports prüfen
-  4. Release-Tag und Notes vorbereiten
+### Root-Build-Verhalten
+
+Das Root-Projekt aktiviert `base` und verdrahtet:
+
+- `build` → `:app:build`
+- `check` → `:app:check`
+
+### CI-Workflow
+
+Workflow-Datei: `/home/runner/work/AndroidSA/AndroidSA/.github/workflows/android-background-build.yml`
+
+Die Pipeline führt aus:
+
+1. Checkout mit voller Historie
+2. JDK-17-Setup und Gradle-Cache
+3. Gradle-Setup und Wrapper-Validierung
+4. Warmup der Plugin- und Dependency-Auflösung mit Retry
+5. native Host-Tests via CMake/CTest
+6. `./gradlew --no-daemon :app:testDebugUnitTest --stacktrace` mit Retry
+7. `./gradlew --no-daemon :app:assemble --stacktrace` mit Retry
+8. Upload der Testreports als Artefakt
+
+## Entwicklungsablauf
+
+- fachliche Änderungen zuerst im passenden Layer lokalisieren
+- Änderungen an Commands immer in Kotlin und C++ gegeneinander prüfen
+- bei UI-Anpassungen Snapshot-, Busy- und Error-Flows mitdenken
+- vor Releases `CHANGELOG.md` und `docs/RELEASE_CHECKLIST.md` aktualisieren
+- für eine kompakte Projektvorstellung siehe `Projectvorstellungs.md`
 
 ## Troubleshooting
 
-- **Gradle/Plugin kann nicht aufgelöst werden:** Netzwerkzugriff auf Google Maven prüfen.
-- **NDK/CMake-Probleme:** installierte Versionen mit `app/build.gradle.kts` abgleichen.
-- **JNI-Library lädt nicht:** sicherstellen, dass `androidsa` erfolgreich gebaut wurde.
-- **Command wird abgelehnt:** auf Syntax (`connect:<server>`, `transport:<value>`, `player:<value>`, `latency:<ms>`, `simulate:rx|tx`, `diagnostics:<value>`, `fail:<reason>`), Länge und verbotene Zeichen prüfen.
+- **JNI-Library lädt nicht:** sicherstellen, dass `androidsa` erfolgreich gebaut wurde
+- **Gradle-Abhängigkeiten schlagen fehl:** Google Maven und Maven Central Erreichbarkeit prüfen
+- **Native Tests schlagen fehl:** Build-Verzeichnis unter `/tmp/androidsa-native-tests` neu erzeugen
+- **Command wird abgelehnt:** Syntax, Maximallänge, verbotene Zeichen und Wertebereich prüfen
+- **Keine Paketereignisse sichtbar:** Connect- oder Simulations-Commands erneut auslösen, damit neue UDP-Probes erzeugt werden
 
 ## Lizenz
 

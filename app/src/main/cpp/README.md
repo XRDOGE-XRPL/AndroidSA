@@ -1,24 +1,51 @@
-# Native C++ Layer (`app/src/main/cpp`)
+# Native C++ Layer
 
-Der native Layer kapselt JNI-Einstiegspunkte, Zustandsverwaltung und Logging für AndroidSA.
+Der Ordner `/home/runner/work/AndroidSA/AndroidSA/app/src/main/cpp` enthält den nativen Kern von AndroidSA. Hier liegen JNI-Einstiegspunkte, Logging, Zustandsverwaltung, UDP-Probing und native Host-Tests.
 
-## Dateien
+## Bestandteile
 
 - `CMakeLists.txt`  
-  Definiert die Shared Library `androidsa`, aktiviert C++20 und bindet Android `log`.
+  definiert die Shared Library `androidsa`, aktiviert C++20 und registriert optional den Host-Test `client_state_test`.
 - `native-lib.cpp`  
-  JNI-Funktionen:
-  - `nativeGetClientSummary()`
-  - `nativeGetRecentEvents()`
-  - `nativeDispatchCommand(command)`
-- `native/network/ClientState.h/.cpp`  
-  Thread-sicherer Client-Zustand, Event-Historie und Command-Dispatch.
-- `native/logging/Logger.h/.cpp`  
-  Logging-Helfer über Android Logcat.
+  stellt die JNI-Funktionen `nativeGetClientSummary()`, `nativeGetRecentEvents()` und `nativeDispatchCommand()` bereit.
+- `native/network/ClientState.h` / `ClientState.cpp`  
+  implementieren den vollständigen Laufzeitzustand, Command-Dispatch, Summary-Erzeugung, Event-Historie und UDP-Probes.
+- `native/network/ClientStateTest.cpp`  
+  nativer Host-Test für zentrale Zustandsübergänge und Counter-Verhalten.
+- `native/logging/Logger.h` / `Logger.cpp`  
+  abstrahieren Log-Ausgaben über Android Logcat beziehungsweise `std::clog` auf Nicht-Android-Plattformen.
 
-## Command-Verarbeitung
+## Zustandsmodell
 
-`ClientState::dispatchCommand` unterstützt aktuell:
+`ClientState` hält unter einem Mutex folgende Kernwerte:
+
+- `transport_`
+- `state_`
+- `diagnostics_`
+- `serverAddress_`
+- `playerName_`
+- `latencyMs_`
+- `packetsSent_`
+- `packetsReceived_`
+- `connectionAttempts_`
+- `lastCommand_`
+- `eventLog_`
+
+Zusätzlich verwaltet der State einen UDP-Socket und ein Flag, ob die Laufzeitumgebung für Probes bereits initialisiert wurde.
+
+## Summary-Format
+
+Der native Layer liefert aktuell ein elfspaltiges Pipe-Format:
+
+```text
+AndroidSA|<transport>|<state>|<diagnostics>|<server>|<player>|<latencyMs>|<packetsSent>|<packetsReceived>|<connectionAttempts>|<lastCommand>
+```
+
+Dieses Format wird direkt in Kotlin weiterverarbeitet. Änderungen daran erfordern immer eine Synchronisierung mit `NativeBridge.kt` und den zugehörigen Tests.
+
+## Unterstützte Commands
+
+`ClientState::dispatchCommand()` verarbeitet derzeit:
 
 - `ping`
 - `connect`
@@ -28,62 +55,75 @@ Der native Layer kapselt JNI-Einstiegspunkte, Zustandsverwaltung und Logging fü
 - `reset`
 - `status`
 - `transport:<name>`
+- `diagnostics:<text>`
 - `player:<name>`
 - `latency:<ms>`
+- `fail:<reason>`
 - `simulate:rx`
 - `simulate:tx`
-- `diagnostics:<text>`
-- `fail:<reason>`
+- generische Fallback-Commands, die als `command:<input>` im State landen
 
-Validierung im nativen Layer:
+## Validierungslogik
 
-- Command nach `trim` darf nicht leer sein
-- maximale Länge 64 Zeichen
+Noch bevor ein Command verarbeitet wird, prüft der Native-Layer:
+
 - keine Steuerzeichen
 - kein `|`
-- `transport`, `connect:<server>`, `player:<name>`, `latency:<ms>`, `simulate:<value>`, `diagnostics:<value>` und `fail:<reason>` nutzen exakte `keyword:<value>`-Syntax
-- `latency` akzeptiert nur nicht-negative Integer
-- `simulate` akzeptiert nur `rx` oder `tx`
+- nach `trim` nicht leer
+- maximal 64 Zeichen
+- exakte `keyword:<value>`-Form bei wertbasierten Commands
+- nur nicht-negative Integer für `latency`
+- nur `rx` oder `tx` für `simulate`
 
-## Laufzeitdaten
+Ungültige Commands liefern `false` an die JVM zurück.
 
-Der Native-State liefert eine erweiterte Summary inklusive:
+## UDP-Probing und Paketereignisse
 
-- Transport
-- Connection-State
-- Diagnostics
-- Server-Adresse
-- Spielername
-- Latenz
-- Paket-Zähler (TX/RX)
-- Anzahl der Verbindungsversuche
-- letzter erfolgreicher Command
-- begrenzte Event-Historie für Debug-Ausgaben
+Für `connect`, `connect:<server>`, `reconnect` und `simulate:*` wird ein Loopback-UDP-Flow verwendet:
 
-## UDP-Probing und Paket-Parsing
+- Socket-Erzeugung via `socket(AF_INET, SOCK_DGRAM, 0)`
+- Nonblocking-Modus per `fcntl`
+- Bind auf `127.0.0.1` mit ephemerem Port
+- Probe-Sends via `sendto`
+- Probe-Receives via `recvfrom`
 
-Der aktuelle Native-Kern verwendet für `connect`, `reconnect`, `simulate:rx` und `simulate:tx` einen realen UDP-Socket-Flow auf Loopback-Basis:
+Empfangene Payloads werden analysiert. Der Parser beschreibt derzeit u. a.:
 
-- Öffnen und Binden eines UDP-Sockets auf `127.0.0.1` (ephemerer Port)
-- tatsächliche `sendto`/`recvfrom`-Operationen für Paketzählung
-- Auswertung eingehender Pakete über einen RakNet/Open:MP-orientierten Bytestream-Pfad
+- `0x00` → RakNet connected ping
+- `0x1c` → RakNet open connection request
+- `0x1d` → RakNet open connection reply
+- `0x7d` → Open:MP/SA:MP RPC wrapper
 
-Der Parser erkennt derzeit grundlegende Pakettypen (inkl. RPC-Wrapper `0x7d`) und schreibt dekodierte Ereignisse in die Event-Historie.
+Bei RPC-Wrappern werden zusätzlich RPC-ID und deklarierte Payload-Länge ins Event geschrieben.
 
-## Build-Hinweise
+## Logging
 
-Der native Teil wird über das App-Modul gebaut. Direkter Einstieg:
+`Logger::info()` schreibt:
+
+- auf Android in Logcat mit `ANDROID_LOG_INFO`
+- auf Host-Systemen in `std::clog`
+
+Das Logging wird nach erfolgreichen Dispatches mit der aktuellen Diagnostics-Meldung aufgerufen.
+
+## Build und Tests
+
+### Build über Gradle
 
 ```bash
 ./gradlew :app:build
 ```
 
-Die CMake-Minimalversion ist in `CMakeLists.txt` auf `3.22.1` gesetzt.
-
-Für Host-Tests (ohne Android-Ziel) kann zusätzlich der native Test ausgeführt werden:
+### Direkter Host-Testlauf
 
 ```bash
 cmake -S app/src/main/cpp -B /tmp/androidsa-native-tests -DANDROIDSA_ENABLE_NATIVE_TESTS=ON
 cmake --build /tmp/androidsa-native-tests --target client_state_test
 ctest --test-dir /tmp/androidsa-native-tests --output-on-failure
 ```
+
+## Änderungsrichtlinien
+
+- neue Commands immer in Kotlin und C++ spiegeln
+- Änderungen an UDP-Probing oder Summary-Feldern mit Host-Test und JVM-Tests absichern
+- Event-Texte bewusst wählen, da sie direkt in der Android-Oberfläche erscheinen
+- Fehlerdiagnosen so formulieren, dass die Bridge sie konsistent als Fehlerzustand interpretieren kann
