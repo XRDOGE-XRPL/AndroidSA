@@ -168,9 +168,10 @@ Die CI-Pipeline:
 1. Checkout (`actions/checkout@v4`)
 2. JDK 17 + Gradle Cache (`actions/setup-java@v4`)
 3. Gradle Setup + Wrapper Validation
-4. Native Host-Tests (`client_state_test` via CMake/CTest)
-5. Unit-Tests (`:app:testDebugUnitTest`)
-6. Assemble mit:
+4. Gradle-Warmup mit Retry (`help --refresh-dependencies`)
+5. Native Host-Tests (`client_state_test` via CMake/CTest)
+6. Unit-Tests (`:app:testDebugUnitTest`) mit Retry bei transienten Auflösungsfehlern
+7. Assemble mit Retry:
 
 ```bash
 ./gradlew --no-daemon :app:assemble --stacktrace
