@@ -1,6 +1,7 @@
 package com.xrdoge.xrpl.androidsa
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Assert.assertThrows
 import org.junit.Test
 
@@ -91,6 +92,42 @@ class NativeBridgeTest {
         val events = parseNativeEventLog("   \n  ")
 
         assertEquals(listOf("No recent events"), events)
+    }
+
+    @Test
+    fun parseNativeEventLogCapsToMostRecentEntries() {
+        val raw = (1..60).joinToString(separator = "\n") { "event-$it" }
+
+        val events = parseNativeEventLog(raw)
+
+        assertEquals(48, events.size)
+        assertEquals("event-13", events.first())
+        assertEquals("event-60", events.last())
+    }
+
+    @Test
+    fun normalizeNativeSnapshotPromotesFailureDiagnosticsToErrorState() {
+        val snapshot = NativeClientSnapshot(
+            overview = NativeOverview(
+                clientName = "AndroidSA",
+                transport = "udp",
+                connectionState = "connected",
+                diagnostics = "UDP bind failed: address in use",
+                serverAddress = "demo.sa-mp.local:7777",
+                playerName = "Guest",
+                latencyMs = 0,
+                packetsSent = 0,
+                packetsReceived = 0,
+                connectionAttempts = 1,
+                lastCommand = "connect",
+            ),
+            recentEvents = listOf("UDP bind failed: address in use"),
+        )
+
+        val normalized = normalizeNativeSnapshot(snapshot)
+
+        assertEquals("error", normalized.overview.connectionState)
+        assertTrue(normalized.overview.diagnostics.contains("failed"))
     }
 
     @Test

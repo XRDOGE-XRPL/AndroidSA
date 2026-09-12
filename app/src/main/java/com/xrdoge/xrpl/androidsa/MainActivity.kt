@@ -34,7 +34,9 @@ import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.withContext
 
 private const val MaxUiRecentEvents = 12
@@ -94,22 +96,26 @@ private fun AndroidSAApp() {
     var latencyText by remember { mutableStateOf("48") }
     var isLoading by remember { mutableStateOf(false) }
     var commandJob by remember { mutableStateOf<Job?>(null) }
+    var commandInFlight by remember { mutableStateOf<String?>(null) }
+    val commandMutex = remember { Mutex() }
     val scope = rememberCoroutineScope()
     val overview = snapshot.overview
-    val isBusy = isLoading || commandJob?.isActive == true
+    val isBusy = isLoading || commandJob?.isActive == true || commandInFlight != null
     val commandError = remember(commandText) {
         runCatching {
             requireValidNativeCommand(commandText)
         }.exceptionOrNull()?.message
     }
 
-    fun applySnapshot(newSnapshot: NativeClientSnapshot) {
+    fun applySnapshot(newSnapshot: NativeClientSnapshot, syncInputs: Boolean = true) {
         snapshot = newSnapshot
-        serverAddressText = newSnapshot.overview.serverAddress
-        playerNameText = newSnapshot.overview.playerName
-        transportText = newSnapshot.overview.transport
-        diagnosticsText = newSnapshot.overview.diagnostics
-        latencyText = newSnapshot.overview.latencyMs.toString()
+        if (syncInputs) {
+            serverAddressText = newSnapshot.overview.serverAddress
+            playerNameText = newSnapshot.overview.playerName
+            transportText = newSnapshot.overview.transport
+            diagnosticsText = newSnapshot.overview.diagnostics
+            latencyText = newSnapshot.overview.latencyMs.toString()
+        }
     }
 
     fun applyLocalError(message: String) {
@@ -121,22 +127,25 @@ private fun AndroidSAApp() {
                 ),
                 recentEvents = (listOf(message) + snapshot.recentEvents).take(MaxUiRecentEvents),
             ),
+            syncInputs = false,
         )
     }
 
     val dispatchCommand: (String) -> Unit = dispatch@{ commandToDispatch ->
-        if (isBusy) {
+        if (isBusy || !commandMutex.tryLock()) {
             return@dispatch
         }
 
         val sanitizedCommand = runCatching {
             requireValidNativeCommand(commandToDispatch)
         }.getOrElse { validationError ->
+            commandMutex.unlock()
             applyLocalError(validationError.message ?: "Native command validation failed")
             return@dispatch
         }
 
         isLoading = true
+        commandInFlight = sanitizedCommand
         val launchedJob = scope.launch {
             try {
                 val result = withContext(Dispatchers.IO) {
@@ -147,6 +156,7 @@ private fun AndroidSAApp() {
                         applyLocalError(it.message ?: "Native command failed")
                         return@getOrElse snapshot
                     },
+                    syncInputs = true,
                 )
             } catch (error: Exception) {
                 if (error is CancellationException) {
@@ -157,7 +167,11 @@ private fun AndroidSAApp() {
                 val finishingJob = coroutineContext[Job]
                 if (commandJob === finishingJob) {
                     isLoading = false
+                    commandInFlight = null
                     commandJob = null
+                }
+                if (commandMutex.isLocked) {
+                    commandMutex.unlock()
                 }
             }
         }
@@ -179,6 +193,25 @@ private fun AndroidSAApp() {
             )
         } finally {
             isLoading = false
+        }
+    }
+
+    val shouldAutoRefreshMetrics = overview.connectionState.equals("connected", ignoreCase = true)
+    LaunchedEffect(shouldAutoRefreshMetrics) {
+        if (!shouldAutoRefreshMetrics) {
+            return@LaunchedEffect
+        }
+        while (true) {
+            delay(1000)
+            if (isBusy) {
+                continue
+            }
+            applySnapshot(
+                withContext(Dispatchers.IO) {
+                    loadSnapshotSafely { NativeBridge.snapshot() }
+                },
+                syncInputs = false,
+            )
         }
     }
 
@@ -213,6 +246,7 @@ private fun AndroidSAApp() {
                 OverviewValueRow(title = "Packets received", value = overview.packetsReceived.toString())
                 OverviewValueRow(title = "Reconnect attempts", value = overview.connectionAttempts.toString())
                 OverviewValueRow(title = "Last command", value = overview.lastCommand)
+                OverviewValueRow(title = "Active operation", value = commandInFlight ?: "idle")
             }
             SectionCard(title = "Guided controls") {
                 OutlinedTextField(
