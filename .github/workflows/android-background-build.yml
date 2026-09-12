@@ -58,7 +58,7 @@ jobs:
         run: ./gradlew --no-daemon :app:testDebugUnitTest --stacktrace
 
       - name: Build project
-        run: ./gradlew --no-daemon check build --stacktrace
+        run: ./gradlew --no-daemon check build -x :app:testDebugUnitTest --stacktrace
 
       - name: Upload test reports
         if: always()

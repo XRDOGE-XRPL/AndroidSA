@@ -82,11 +82,21 @@ private fun AndroidSAApp() {
             return@dispatch
         }
 
+        val sanitizedCommand = runCatching {
+            requireValidNativeCommand(commandToDispatch)
+        }.getOrElse { validationError ->
+            overview = overview.copy(
+                connectionState = "error",
+                diagnostics = validationError.message ?: "Native command validation failed",
+            )
+            return@dispatch
+        }
+
         isLoading = true
         val launchedJob = scope.launch {
             try {
                 val result = withContext(Dispatchers.IO) {
-                    NativeBridge.refresh(commandToDispatch)
+                    NativeBridge.refresh(sanitizedCommand)
                 }
                 overview = result.getOrElse {
                     overview.copy(

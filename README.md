@@ -155,7 +155,7 @@ Die CI-Pipeline:
 6. Build mit:
 
 ```bash
-./gradlew --no-daemon check build --stacktrace
+./gradlew --no-daemon check build -x :app:testDebugUnitTest --stacktrace
 ```
 
 Zusätzlich werden Testreports als CI-Artefakt hochgeladen.
