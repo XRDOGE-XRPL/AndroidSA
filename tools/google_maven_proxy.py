@@ -6,6 +6,7 @@ import hashlib
 import json
 import os
 import shutil
+import subprocess
 import sys
 import tarfile
 import tempfile
@@ -39,6 +40,7 @@ class Donor:
 DEFAULT_DONORS = (
     Donor("nehemiaharchives", "lucene-kmp-gc", "9026b5f2b2b024b4b9ce553a971ddc51fd1e629d"),
     Donor("masudrana35362", "News-Apps-Using-Compose", "9436ab02bd4cfcc6e448bc68d27ea9ca675e6145"),
+    Donor("LexChien", "BabyGrowthApp", "637414782eff553f9fa82be22ccc83473e1e2095"),
 )
 
 TEXT_EXTENSIONS = {".module", ".pom", ".xml"}
@@ -153,6 +155,25 @@ class MavenMirrorIndex:
     @staticmethod
     def _download_to_file(url: str, destination: Path) -> None:
         destination.parent.mkdir(parents=True, exist_ok=True)
+        curl = shutil.which("curl")
+        if curl is not None:
+            subprocess.run(
+                [
+                    curl,
+                    "--silent",
+                    "--show-error",
+                    "--fail",
+                    "--location",
+                    "--user-agent",
+                    "AndroidSA Google Maven Proxy",
+                    "--output",
+                    str(destination),
+                    url,
+                ],
+                check=True,
+            )
+            return
+
         request = Request(url, headers={"User-Agent": "AndroidSA Google Maven Proxy"})
         with urlopen(request, timeout=60) as response, destination.open("wb") as handle:
             shutil.copyfileobj(response, handle)
