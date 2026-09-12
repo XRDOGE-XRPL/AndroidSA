@@ -9,6 +9,8 @@
 
 namespace androidsa::network {
 namespace {
+constexpr std::size_t kMaxCommandLength = 64;
+
 std::string trim(std::string value) {
     value.erase(value.begin(), std::find_if(value.begin(), value.end(), [](unsigned char ch) {
         return !std::isspace(ch);
@@ -29,6 +31,12 @@ std::string lower(std::string value) {
 bool startsWith(const std::string& value, std::string_view prefix) {
     return value.rfind(prefix, 0) == 0;
 }
+
+bool containsInvalidSummaryCharacters(std::string_view value) {
+    return std::any_of(value.begin(), value.end(), [](unsigned char ch) {
+        return ch < 0x20 || ch == 0x7F || ch == '|';
+    });
+}
 }  // namespace
 
 std::string ClientState::summary() {
@@ -41,6 +49,12 @@ std::string ClientState::summary() {
 bool ClientState::dispatchCommand(const std::string& command) {
     const auto sanitized = trim(command);
     if (sanitized.empty()) {
+        return false;
+    }
+    if (sanitized.size() > kMaxCommandLength) {
+        return false;
+    }
+    if (containsInvalidSummaryCharacters(sanitized)) {
         return false;
     }
 

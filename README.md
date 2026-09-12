@@ -45,6 +45,8 @@ cd AndroidSA
 - `disconnect` → simuliert Trennung (`disconnected`)
 - `reset` → setzt nativen Zustand auf Startwerte zurück
 - `transport:<name>` → setzt den aktiven Transport auf `<name>`
+- Kommandos sind auf maximal 64 Zeichen begrenzt.
+- Kommandos dürfen keine Steuerzeichen und kein `|` enthalten (Schutz des nativen Summary-Formats).
 
 ## Hinweise zur lokalen Validierung
 

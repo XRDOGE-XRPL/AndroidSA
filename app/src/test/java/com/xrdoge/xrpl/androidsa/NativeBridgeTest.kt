@@ -67,6 +67,20 @@ class NativeBridgeTest {
     }
 
     @Test
+    fun requireValidNativeCommandRejectsControlCharacters() {
+        assertThrows(IllegalArgumentException::class.java) {
+            requireValidNativeCommand("ping\n")
+        }
+    }
+
+    @Test
+    fun requireValidNativeCommandRejectsSummaryDelimiterCharacter() {
+        assertThrows(IllegalArgumentException::class.java) {
+            requireValidNativeCommand("transport:udp|tcp")
+        }
+    }
+
+    @Test
     fun requireValidNativeCommandAcceptsTransportCommand() {
         assertEquals("transport:udp", requireValidNativeCommand("transport:udp"))
     }
