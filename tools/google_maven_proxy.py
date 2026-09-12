@@ -219,11 +219,13 @@ class MavenMirrorIndex:
                 temp_path.unlink(missing_ok=True)
                 if exc.code == HTTPStatus.NOT_FOUND:
                     continue
+                raise
             except URLError:
                 temp_path.unlink(missing_ok=True)
             except Exception:
                 temp_path.unlink(missing_ok=True)
- 
+                raise
+
         return False
 
 

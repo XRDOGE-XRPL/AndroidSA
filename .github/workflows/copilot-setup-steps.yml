@@ -59,12 +59,7 @@ jobs:
             echo "ANDROIDSA_GOOGLE_MAVEN_PROXY_LOG=/tmp/androidsa-google-maven-proxy.log"
           } >> "$GITHUB_ENV"
 
-      - name: Warm Gradle plugin and dependency resolution
+      - name: Warm Gradle plugin, test, and assemble dependencies
         env:
           ANDROIDSA_GOOGLE_MAVEN_URL: http://127.0.0.1:38473/
-        run: ./gradlew --no-daemon help --stacktrace --refresh-dependencies
-
-      - name: Preload Android build dependencies
-        env:
-          ANDROIDSA_GOOGLE_MAVEN_URL: http://127.0.0.1:38473/
-        run: ./gradlew --no-daemon :app:testDebugUnitTest :app:assemble --stacktrace
+        run: ./gradlew --no-daemon help :app:testDebugUnitTest :app:assemble --stacktrace --refresh-dependencies
