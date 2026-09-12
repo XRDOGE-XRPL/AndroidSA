@@ -263,6 +263,15 @@ class MavenMirrorIndex:
         if javac is None:
             raise RuntimeError("javac is required to patch the Android Gradle plugin jar")
 
+        gradle_jars = sorted(
+            jar
+            for lib_root in (Path.home() / ".gradle" / "wrapper" / "dists").glob("**/gradle-*/lib")
+            for jar in lib_root.rglob("*.jar")
+        )
+        if not gradle_jars:
+            raise RuntimeError("Gradle distribution jars are required to patch the Android Gradle plugin jar")
+        compile_classpath = os.pathsep.join([str(path), *(str(jar) for jar in gradle_jars)])
+
         with tempfile.TemporaryDirectory(prefix="androidsa-agp-patch-") as temp_dir:
             temp_root = Path(temp_dir)
             source_dir = temp_root / "src" / "com" / "android" / "build" / "gradle"
@@ -291,7 +300,7 @@ public class AppPlugin extends com.android.build.gradle.internal.plugins.AppPlug
                 [
                     javac,
                     "-cp",
-                    str(path),
+                    compile_classpath,
                     "-d",
                     str(classes_dir),
                     str(source_file),
