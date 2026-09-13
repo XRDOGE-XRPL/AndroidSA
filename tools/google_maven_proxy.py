@@ -433,7 +433,8 @@ class MirrorHandler(BaseHTTPRequestHandler):
     cache_dir: Path
     donors: tuple[Donor, ...]
     _mirror_index: MavenMirrorIndex | None = None
-    _mirror_index_initializing = False
+    _config_generation = 0
+    _mirror_index_initializing_generation: int | None = None
     _mirror_index_condition = threading.Condition()
     EMPTY_JAR_BYTES = (
         b"PK\x05\x06\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
@@ -538,30 +539,47 @@ class MirrorHandler(BaseHTTPRequestHandler):
 
     @classmethod
     def _get_mirror_index(cls) -> MavenMirrorIndex:
-        with cls._mirror_index_condition:
-            if cls._mirror_index is not None:
-                return cls._mirror_index
-            if cls._mirror_index_initializing:
-                while cls._mirror_index_initializing and cls._mirror_index is None:
-                    cls._mirror_index_condition.wait()
+        while True:
+            with cls._mirror_index_condition:
+                generation = cls._config_generation
                 if cls._mirror_index is not None:
                     return cls._mirror_index
-            cls._mirror_index_initializing = True
+                if cls._mirror_index_initializing_generation == generation:
+                    while (
+                        cls._mirror_index is None
+                        and cls._mirror_index_initializing_generation == generation
+                        and cls._config_generation == generation
+                    ):
+                        cls._mirror_index_condition.wait()
+                    if cls._config_generation != generation:
+                        continue
+                    if cls._mirror_index is not None:
+                        return cls._mirror_index
+                cls._mirror_index_initializing_generation = generation
+                cache_dir = cls.cache_dir
+                donors = cls.donors
 
-        try:
-            mirror_index = MavenMirrorIndex(cls.cache_dir, cls.donors)
-        except Exception:
+            try:
+                mirror_index = MavenMirrorIndex(cache_dir, donors)
+            except Exception:
+                with cls._mirror_index_condition:
+                    if cls._mirror_index_initializing_generation == generation:
+                        cls._mirror_index_initializing_generation = None
+                        cls._mirror_index_condition.notify_all()
+                raise
+
             with cls._mirror_index_condition:
-                cls._mirror_index_initializing = False
-                cls._mirror_index_condition.notify_all()
-            raise
-
-        with cls._mirror_index_condition:
-            if cls._mirror_index is None:
-                cls._mirror_index = mirror_index
-            cls._mirror_index_initializing = False
-            cls._mirror_index_condition.notify_all()
-            return cls._mirror_index
+                if cls._config_generation != generation:
+                    if cls._mirror_index_initializing_generation == generation:
+                        cls._mirror_index_initializing_generation = None
+                        cls._mirror_index_condition.notify_all()
+                    continue
+                if cls._mirror_index is None:
+                    cls._mirror_index = mirror_index
+                if cls._mirror_index_initializing_generation == generation:
+                    cls._mirror_index_initializing_generation = None
+                    cls._mirror_index_condition.notify_all()
+                return cls._mirror_index
 
 
 def main() -> int:
@@ -593,8 +611,9 @@ def main() -> int:
     with MirrorHandler._mirror_index_condition:
         MirrorHandler.cache_dir = args.cache_dir
         MirrorHandler.donors = donors
+        MirrorHandler._config_generation += 1
         MirrorHandler._mirror_index = None
-        MirrorHandler._mirror_index_initializing = False
+        MirrorHandler._mirror_index_initializing_generation = None
         MirrorHandler._mirror_index_condition.notify_all()
     server = ThreadingHTTPServer((args.host, args.port), MirrorHandler)
     try:
