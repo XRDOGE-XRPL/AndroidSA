@@ -2,7 +2,7 @@
 
 ## 0) Vollständiges Setup und Durchführung `run test`
 
-- [ ] Arbeitsverzeichnis ist `/home/runner/work/AndroidSA/AndroidSA`
+- [ ] Befehle werden im Repository-Root ausgeführt
 - [ ] Gradle Wrapper ist ausführbar (`chmod +x ./gradlew`)
 - [ ] Toolchain ist installiert (JDK 17, Android SDK 34, NDK `27.3.13750724`, CMake 3.22.1+)
 - [ ] Optionaler Google-Maven-Proxy bei blockierten Netzwerken gestartet (`python3 tools/google_maven_proxy.py --port 38473`)

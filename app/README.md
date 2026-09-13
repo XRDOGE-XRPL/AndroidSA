@@ -105,7 +105,7 @@ Diese Regeln werden im nativen Layer erneut abgesichert.
 
 ### Setup im App-Modul
 
-1. In das Repository-Root wechseln (`/home/runner/work/AndroidSA/AndroidSA`).
+1. In das Repository-Root wechseln.
 2. Gradle Wrapper aktivieren:
 
    ```bash

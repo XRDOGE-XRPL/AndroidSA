@@ -132,7 +132,7 @@ ctest --test-dir /tmp/androidsa-native-tests --output-on-failure
 
 ### Setup für den nativen Layer
 
-1. Im Repository-Root arbeiten (`/home/runner/work/AndroidSA/AndroidSA`).
+1. Im Repository-Root arbeiten.
 2. Voraussetzungen sicherstellen:
    - JDK 17 (für Gradle/JVM-Tests)
    - CMake 3.22.1+

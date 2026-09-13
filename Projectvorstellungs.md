@@ -61,7 +61,7 @@ Das Repository ist bereits so strukturiert, dass UI, Bridge und Native-Layer una
 
 ### Setup
 
-1. Repository lokal öffnen: `/home/runner/work/AndroidSA/AndroidSA`
+1. Repository lokal öffnen und in das Repository-Root wechseln.
 2. Gradle Wrapper freischalten:
 
    ```bash
