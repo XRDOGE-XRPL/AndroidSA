@@ -150,6 +150,6 @@ ctest --test-dir build/native-tests --output-on-failure
 cmake -S app/src/main/cpp -B build/native-tests -DANDROIDSA_ENABLE_NATIVE_TESTS=ON
 cmake --build build/native-tests --target client_state_test
 ctest --test-dir build/native-tests --output-on-failure
-./gradlew --no-daemon :app:testDebugUnitTest --stacktrace
-./gradlew --no-daemon check build --stacktrace
 ```
+
+Für den vollständigen app-/projektweiten Gradle-Testlauf siehe die zentrale Anleitung in `/README.md`.
