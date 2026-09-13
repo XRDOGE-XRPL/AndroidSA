@@ -123,10 +123,12 @@ Diese Regeln werden im nativen Layer erneut abgesichert.
    python3 tools/google_maven_proxy.py --port 38473
    ```
 
-### Durchführung Testlauf
+### Durchführung Testlauf (App-Modul)
 
 ```bash
 ./gradlew --no-daemon help :app:testDebugUnitTest :app:assemble --stacktrace --refresh-dependencies
 ./gradlew --no-daemon :app:testDebugUnitTest --stacktrace
 ./gradlew --no-daemon :app:check :app:build --stacktrace
 ```
+
+Für den vollständigen projektweiten `run test` (inkl. Root-`check build`) siehe `/README.md`.
