@@ -36,3 +36,5 @@ Alle relevanten Änderungen dieses Projekts werden in dieser Datei dokumentiert.
 
 - Alle Markdown-Dokumente wurden um vollständige Setup-Voraussetzungen und eine konkrete `run test`-Durchführung erweitert.
 - Einheitliche Befehle für Gradle-Warmup, JVM-Tests, native CMake/CTest-Läufe und abschließendes `./gradlew --no-daemon check build --stacktrace` wurden dokumentiert.
+- Inhalte der bestehenden Markdown-Dateien wurden weiter ausgebaut (Pflegehinweise, Wartungsnotizen, Ausbaupfad).
+- Neue `ToDo.md` im Repository-Root als zentrale Aufgabenübersicht ergänzt.

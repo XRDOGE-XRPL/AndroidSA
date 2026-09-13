@@ -57,6 +57,12 @@ Das Repository ist bereits so strukturiert, dass UI, Bridge und Native-Layer una
 - Teams, die einen kontrollierten Multiplayer-nahen Clientzustand visualisieren wollen
 - Mitwirkende, die ein klar dokumentiertes Compose/NDK-Beispiel suchen
 
+## Nächste Ausbaustufen
+
+- Weitere Testabdeckung für Edge-Cases in Command-Validierung und Event-Parsing.
+- Verbesserte Developer-Onboarding-Flows mit klaren Quickstart-Schritten.
+- Kontinuierliche Synchronisierung zwischen Produktüberblick, technischer Doku und Release-Checklisten.
+
 ## Vollständiges Setup und Durchführung `run test`
 
 ### Setup

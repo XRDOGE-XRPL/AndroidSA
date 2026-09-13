@@ -128,6 +128,12 @@ ctest --test-dir build/native-tests --output-on-failure
 - Event-Texte bewusst wählen, da sie direkt in der Android-Oberfläche erscheinen
 - Fehlerdiagnosen so formulieren, dass die Bridge sie konsistent als Fehlerzustand interpretieren kann
 
+## Wartungsnotizen für den nativen Bereich
+
+- Änderungen am Summary-Format immer zusammen mit Kotlin-Parser und Tests prüfen.
+- Bei Anpassungen an Socket-/Probe-Logik Host-Tests lokal erneut via CMake/CTest ausführen.
+- Event-Texte stabil halten, damit UI-Snapshots und Doku konsistent bleiben.
+
 ## Vollständiges Setup und Durchführung `run test`
 
 ### Setup für den nativen Layer

@@ -16,6 +16,7 @@
 - [ ] `CHANGELOG.md` unter `Unreleased` vollständig aktualisiert
 - [ ] `README.md`, `app/README.md` und `app/src/main/cpp/README.md` spiegeln den aktuellen Stand wider
 - [ ] `Projectvorstellungs.md` wurde bei relevanten Produktänderungen mitgepflegt
+- [ ] `ToDo.md` wurde geprüft und offene Doku-/Technikpunkte sind eingeplant
 - [ ] Bekannte Risiken, offene Punkte und Einschränkungen sind dokumentiert
 
 ## 2) Technische Validierung
@@ -47,3 +48,8 @@
 - [ ] Versionskennung und Tag gesetzt
 - [ ] Release im Zielsystem veröffentlicht
 - [ ] Post-Release-Sanity-Checks durchgeführt
+
+## 6) Nachverfolgung nach Release
+
+- [ ] Offene Punkte in `ToDo.md` nach dem Release aktualisiert/priorisiert
+- [ ] Nicht abgeschlossene Release-Aufgaben in Issues oder Folge-PRs überführt

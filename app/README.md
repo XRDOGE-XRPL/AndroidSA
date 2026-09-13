@@ -101,6 +101,12 @@ Diese Regeln werden im nativen Layer erneut abgesichert.
 - UI-Texte sollten zum tatsächlichen Laufzeitverhalten der nativen Commands passen
 - Race-Conditions besonders bei Busy-State, Auto-Refresh und manuellem Dispatch beachten
 
+## Empfohlene Doku-Pflege im App-Modul
+
+- Bei UI-Flow-Änderungen die betroffenen Abschnitte unter **UI-Flows im Modul** mit aktualisieren.
+- Bei neuen Commands die Liste unter **Command-Regeln im Modul** und zugehörige Tests synchron anpassen.
+- Bei Build-/Test-Änderungen die Befehle in diesem Dokument und im Root-`README.md` auf denselben Stand bringen.
+
 ## Vollständiges Setup und Durchführung `run test`
 
 ### Setup im App-Modul

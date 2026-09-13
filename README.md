@@ -257,6 +257,15 @@ Die Pipeline führt aus:
 - vor Releases `CHANGELOG.md` und `docs/RELEASE_CHECKLIST.md` aktualisieren
 - für eine kompakte Projektvorstellung siehe `Projectvorstellungs.md`
 
+## Dokumentationsausbau
+
+Für größere Änderungen sollte die Dokumentation in diesem Rhythmus aktualisiert werden:
+
+1. Architektur- oder Verhaltensänderung direkt in den betroffenen Modul-READMEs ergänzen.
+2. Kurze Management-/Stakeholder-Sicht in `Projectvorstellungs.md` nachziehen.
+3. Delta und Auswirkungen in `CHANGELOG.md` unter `Unreleased` festhalten.
+4. Release-relevante Punkte in `docs/RELEASE_CHECKLIST.md` als prüfbare Items ergänzen.
+
 ## Troubleshooting
 
 - **JNI-Library lädt nicht:** sicherstellen, dass `androidsa` erfolgreich gebaut wurde
