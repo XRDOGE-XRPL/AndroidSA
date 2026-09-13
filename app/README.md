@@ -100,3 +100,35 @@ Diese Regeln werden im nativen Layer erneut abgesichert.
 - Änderungen an Summary-Feldern müssen mit dem nativen Format synchron bleiben
 - UI-Texte sollten zum tatsächlichen Laufzeitverhalten der nativen Commands passen
 - Race-Conditions besonders bei Busy-State, Auto-Refresh und manuellem Dispatch beachten
+
+## Vollständiges Setup und Durchführung `run test`
+
+### Setup im App-Modul
+
+1. In das Repository-Root wechseln.
+2. Gradle Wrapper aktivieren:
+
+   ```bash
+   chmod +x ./gradlew
+   ```
+
+3. Lokale Toolchain sicherstellen:
+   - JDK 17
+   - Android SDK 34
+   - NDK `27.3.13750724`
+   - CMake 3.22.1+
+4. Bei blockiertem Google Maven optional:
+
+   ```bash
+   python3 tools/google_maven_proxy.py --port 38473
+   ```
+
+### Durchführung Testlauf (App-Modul)
+
+```bash
+./gradlew --no-daemon help :app:testDebugUnitTest :app:assemble --stacktrace --refresh-dependencies
+./gradlew --no-daemon :app:testDebugUnitTest --stacktrace
+./gradlew --no-daemon :app:check :app:build --stacktrace
+```
+
+Für den vollständigen projektweiten `run test` (inkl. Root-`check build`) siehe `/README.md`.

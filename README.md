@@ -207,10 +207,12 @@ chmod +x ./gradlew
 Zusätzlich für native Host-Tests:
 
 ```bash
-cmake -S app/src/main/cpp -B /tmp/androidsa-native-tests -DANDROIDSA_ENABLE_NATIVE_TESTS=ON
-cmake --build /tmp/androidsa-native-tests --target client_state_test
-ctest --test-dir /tmp/androidsa-native-tests --output-on-failure
+cmake -S app/src/main/cpp -B build/native-tests -DANDROIDSA_ENABLE_NATIVE_TESTS=ON
+cmake --build build/native-tests --target client_state_test
+ctest --test-dir build/native-tests --output-on-failure
 ```
+
+`build/native-tests` liegt unter `build/` und ist per `.gitignore` vom Commit ausgeschlossen.
 
 ### Lokaler Google-Maven-Fallback für blockierte Umgebungen
 
@@ -259,9 +261,59 @@ Die Pipeline führt aus:
 
 - **JNI-Library lädt nicht:** sicherstellen, dass `androidsa` erfolgreich gebaut wurde
 - **Gradle-Abhängigkeiten schlagen fehl:** Google Maven und Maven Central Erreichbarkeit prüfen; in blockierten Agent-Umgebungen den lokalen Mirror via `tools/google_maven_proxy.py` und `ANDROIDSA_GOOGLE_MAVEN_URL=http://127.0.0.1:38473/` verwenden
-- **Native Tests schlagen fehl:** Build-Verzeichnis unter `/tmp/androidsa-native-tests` neu erzeugen
+- **Native Tests schlagen fehl:** Build-Verzeichnis unter `build/native-tests` neu erzeugen
 - **Command wird abgelehnt:** Syntax, Maximallänge, verbotene Zeichen und Wertebereich prüfen
 - **Keine Paketereignisse sichtbar:** Connect- oder Simulations-Commands erneut auslösen, damit neue UDP-Probes erzeugt werden
+
+## Vollständiges Setup und Durchführung der Testläufe
+
+### Setup-Schritte
+
+1. Repository klonen und in das Projektverzeichnis wechseln.
+2. Gradle Wrapper ausführbar machen:
+
+   ```bash
+   chmod +x ./gradlew
+   ```
+
+3. Android-Toolchain bereitstellen:
+   - JDK 17
+   - Android SDK 34
+   - NDK `27.3.13750724`
+   - CMake 3.22.1+
+4. Optional in eingeschränkten Netzumgebungen den lokalen Google-Maven-Proxy starten:
+
+   ```bash
+   python3 tools/google_maven_proxy.py --port 38473
+   ```
+
+### Durchführung `run test`
+
+1. Dependency-/Plugin-Auflösung vorwärmen:
+
+   ```bash
+   ./gradlew --no-daemon help :app:testDebugUnitTest :app:assemble --stacktrace --refresh-dependencies
+   ```
+
+2. JVM-Unit-Tests ausführen:
+
+   ```bash
+   ./gradlew --no-daemon :app:testDebugUnitTest --stacktrace
+   ```
+
+3. Native Host-Tests ausführen:
+
+   ```bash
+   cmake -S app/src/main/cpp -B build/native-tests -DANDROIDSA_ENABLE_NATIVE_TESTS=ON
+   cmake --build build/native-tests --target client_state_test
+   ctest --test-dir build/native-tests --output-on-failure
+   ```
+
+4. Vollständige Projektvalidierung abschließen:
+
+   ```bash
+   ./gradlew --no-daemon check build --stacktrace
+   ```
 
 ## Lizenz
 
