@@ -77,11 +77,3 @@ Das Repository ist bereits so strukturiert, dass UI, Bridge und Native-Layer una
 ### Testdurchführung
 
 Für den vollständigen projektweiten `run test` mit allen Schritten (Gradle-Warmup, JVM-Tests, native Host-Tests, abschließendes `check build`) siehe `/README.md`.
-
-```bash
-./gradlew --no-daemon help :app:testDebugUnitTest :app:assemble --stacktrace --refresh-dependencies
-./gradlew --no-daemon :app:testDebugUnitTest --stacktrace
-cmake -S app/src/main/cpp -B build/native-tests -DANDROIDSA_ENABLE_NATIVE_TESTS=ON
-cmake --build build/native-tests --target client_state_test
-ctest --test-dir build/native-tests --output-on-failure
-```
