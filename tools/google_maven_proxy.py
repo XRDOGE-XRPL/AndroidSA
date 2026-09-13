@@ -590,9 +590,12 @@ def main() -> int:
         flush=True,
     )
 
-    MirrorHandler.cache_dir = args.cache_dir
-    MirrorHandler.donors = donors
-    MirrorHandler._mirror_index = None
+    with MirrorHandler._mirror_index_condition:
+        MirrorHandler.cache_dir = args.cache_dir
+        MirrorHandler.donors = donors
+        MirrorHandler._mirror_index = None
+        MirrorHandler._mirror_index_initializing = False
+        MirrorHandler._mirror_index_condition.notify_all()
     server = ThreadingHTTPServer((args.host, args.port), MirrorHandler)
     try:
         server.serve_forever()
