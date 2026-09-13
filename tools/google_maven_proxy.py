@@ -9,6 +9,7 @@ import shutil
 import subprocess
 import sys
 import tarfile
+import threading
 import tempfile
 import zipfile
 from dataclasses import dataclass
@@ -429,7 +430,12 @@ public final class AppPlugin extends BasePlugin {
 
 
 class MirrorHandler(BaseHTTPRequestHandler):
-    mirror_index: MavenMirrorIndex
+    cache_dir: Path
+    donors: tuple[Donor, ...]
+    _mirror_index: MavenMirrorIndex | None = None
+    _config_generation = 0
+    _mirror_index_initializing_generation: int | None = None
+    _mirror_index_condition = threading.Condition()
     EMPTY_JAR_BYTES = (
         b"PK\x05\x06\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
     )
@@ -463,7 +469,7 @@ class MirrorHandler(BaseHTTPRequestHandler):
             return
 
         try:
-            artifact_path = self.mirror_index.ensure_artifact(request_path)
+            artifact_path = self._get_mirror_index().ensure_artifact(request_path)
         except Exception as exc:
             self._send_text(
                 HTTPStatus.BAD_GATEWAY,
@@ -531,6 +537,50 @@ class MirrorHandler(BaseHTTPRequestHandler):
 
         return None
 
+    @classmethod
+    def _get_mirror_index(cls) -> MavenMirrorIndex:
+        while True:
+            with cls._mirror_index_condition:
+                generation = cls._config_generation
+                if cls._mirror_index is not None:
+                    return cls._mirror_index
+                if cls._mirror_index_initializing_generation == generation:
+                    while (
+                        cls._mirror_index is None
+                        and cls._mirror_index_initializing_generation == generation
+                        and cls._config_generation == generation
+                    ):
+                        cls._mirror_index_condition.wait()
+                    if cls._config_generation != generation:
+                        continue
+                    if cls._mirror_index is not None:
+                        return cls._mirror_index
+                cls._mirror_index_initializing_generation = generation
+                cache_dir = cls.cache_dir
+                donors = cls.donors
+
+            try:
+                mirror_index = MavenMirrorIndex(cache_dir, donors)
+            except Exception:
+                with cls._mirror_index_condition:
+                    if cls._mirror_index_initializing_generation == generation:
+                        cls._mirror_index_initializing_generation = None
+                        cls._mirror_index_condition.notify_all()
+                raise
+
+            with cls._mirror_index_condition:
+                if cls._config_generation != generation:
+                    if cls._mirror_index_initializing_generation == generation:
+                        cls._mirror_index_initializing_generation = None
+                        cls._mirror_index_condition.notify_all()
+                    continue
+                if cls._mirror_index is None:
+                    cls._mirror_index = mirror_index
+                if cls._mirror_index_initializing_generation == generation:
+                    cls._mirror_index_initializing_generation = None
+                    cls._mirror_index_condition.notify_all()
+                return cls._mirror_index
+
 
 def main() -> int:
     parser = argparse.ArgumentParser(
@@ -551,7 +601,6 @@ def main() -> int:
     args = parser.parse_args()
 
     donors = parse_donors(args.donors)
-    mirror_index = MavenMirrorIndex(args.cache_dir, donors)
     print(f"Serving AndroidSA Google Maven proxy on http://{args.host}:{args.port}/", flush=True)
     print(
         f"Set ANDROIDSA_GOOGLE_MAVEN_URL=http://{args.host}:{args.port}/ or pass "
@@ -559,7 +608,13 @@ def main() -> int:
         flush=True,
     )
 
-    MirrorHandler.mirror_index = mirror_index
+    with MirrorHandler._mirror_index_condition:
+        MirrorHandler.cache_dir = args.cache_dir
+        MirrorHandler.donors = donors
+        MirrorHandler._config_generation += 1
+        MirrorHandler._mirror_index = None
+        MirrorHandler._mirror_index_initializing_generation = None
+        MirrorHandler._mirror_index_condition.notify_all()
     server = ThreadingHTTPServer((args.host, args.port), MirrorHandler)
     try:
         server.serve_forever()
