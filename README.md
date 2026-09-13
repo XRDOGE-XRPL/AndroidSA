@@ -207,9 +207,9 @@ chmod +x ./gradlew
 Zusätzlich für native Host-Tests:
 
 ```bash
-cmake -S app/src/main/cpp -B /tmp/androidsa-native-tests -DANDROIDSA_ENABLE_NATIVE_TESTS=ON
-cmake --build /tmp/androidsa-native-tests --target client_state_test
-ctest --test-dir /tmp/androidsa-native-tests --output-on-failure
+cmake -S app/src/main/cpp -B build/native-tests -DANDROIDSA_ENABLE_NATIVE_TESTS=ON
+cmake --build build/native-tests --target client_state_test
+ctest --test-dir build/native-tests --output-on-failure
 ```
 
 ### Lokaler Google-Maven-Fallback für blockierte Umgebungen
@@ -259,7 +259,7 @@ Die Pipeline führt aus:
 
 - **JNI-Library lädt nicht:** sicherstellen, dass `androidsa` erfolgreich gebaut wurde
 - **Gradle-Abhängigkeiten schlagen fehl:** Google Maven und Maven Central Erreichbarkeit prüfen; in blockierten Agent-Umgebungen den lokalen Mirror via `tools/google_maven_proxy.py` und `ANDROIDSA_GOOGLE_MAVEN_URL=http://127.0.0.1:38473/` verwenden
-- **Native Tests schlagen fehl:** Build-Verzeichnis unter `/tmp/androidsa-native-tests` neu erzeugen
+- **Native Tests schlagen fehl:** Build-Verzeichnis unter `build/native-tests` neu erzeugen
 - **Command wird abgelehnt:** Syntax, Maximallänge, verbotene Zeichen und Wertebereich prüfen
 - **Keine Paketereignisse sichtbar:** Connect- oder Simulations-Commands erneut auslösen, damit neue UDP-Probes erzeugt werden
 
@@ -302,9 +302,9 @@ Die Pipeline führt aus:
 3. Native Host-Tests ausführen:
 
    ```bash
-   cmake -S app/src/main/cpp -B /tmp/androidsa-native-tests -DANDROIDSA_ENABLE_NATIVE_TESTS=ON
-   cmake --build /tmp/androidsa-native-tests --target client_state_test
-   ctest --test-dir /tmp/androidsa-native-tests --output-on-failure
+   cmake -S app/src/main/cpp -B build/native-tests -DANDROIDSA_ENABLE_NATIVE_TESTS=ON
+   cmake --build build/native-tests --target client_state_test
+   ctest --test-dir build/native-tests --output-on-failure
    ```
 
 4. Vollständige Projektvalidierung abschließen:
