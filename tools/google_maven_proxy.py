@@ -9,6 +9,7 @@ import shutil
 import subprocess
 import sys
 import tarfile
+import threading
 import tempfile
 import zipfile
 from dataclasses import dataclass
@@ -429,7 +430,10 @@ public final class AppPlugin extends BasePlugin {
 
 
 class MirrorHandler(BaseHTTPRequestHandler):
-    mirror_index: MavenMirrorIndex
+    cache_dir: Path
+    donors: tuple[Donor, ...]
+    _mirror_index: MavenMirrorIndex | None = None
+    _mirror_index_lock = threading.Lock()
     EMPTY_JAR_BYTES = (
         b"PK\x05\x06\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
     )
@@ -463,7 +467,7 @@ class MirrorHandler(BaseHTTPRequestHandler):
             return
 
         try:
-            artifact_path = self.mirror_index.ensure_artifact(request_path)
+            artifact_path = self._get_mirror_index().ensure_artifact(request_path)
         except Exception as exc:
             self._send_text(
                 HTTPStatus.BAD_GATEWAY,
@@ -531,6 +535,16 @@ class MirrorHandler(BaseHTTPRequestHandler):
 
         return None
 
+    @classmethod
+    def _get_mirror_index(cls) -> MavenMirrorIndex:
+        if cls._mirror_index is not None:
+            return cls._mirror_index
+
+        with cls._mirror_index_lock:
+            if cls._mirror_index is None:
+                cls._mirror_index = MavenMirrorIndex(cls.cache_dir, cls.donors)
+            return cls._mirror_index
+
 
 def main() -> int:
     parser = argparse.ArgumentParser(
@@ -551,7 +565,6 @@ def main() -> int:
     args = parser.parse_args()
 
     donors = parse_donors(args.donors)
-    mirror_index = MavenMirrorIndex(args.cache_dir, donors)
     print(f"Serving AndroidSA Google Maven proxy on http://{args.host}:{args.port}/", flush=True)
     print(
         f"Set ANDROIDSA_GOOGLE_MAVEN_URL=http://{args.host}:{args.port}/ or pass "
@@ -559,7 +572,9 @@ def main() -> int:
         flush=True,
     )
 
-    MirrorHandler.mirror_index = mirror_index
+    MirrorHandler.cache_dir = args.cache_dir
+    MirrorHandler.donors = donors
+    MirrorHandler._mirror_index = None
     server = ThreadingHTTPServer((args.host, args.port), MirrorHandler)
     try:
         server.serve_forever()
