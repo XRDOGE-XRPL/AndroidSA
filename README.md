@@ -212,6 +212,8 @@ cmake --build build/native-tests --target client_state_test
 ctest --test-dir build/native-tests --output-on-failure
 ```
 
+`build/native-tests` liegt unter `build/` und ist per `.gitignore` vom Commit ausgeschlossen.
+
 ### Lokaler Google-Maven-Fallback für blockierte Umgebungen
 
 Wenn `dl.google.com` lokal nicht aufgelöst oder durch die Laufzeitumgebung blockiert wird, kann ein lokaler Mirror-Proxy für Google-Maven-Artefakte gestartet werden:
