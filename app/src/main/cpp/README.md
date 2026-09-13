@@ -127,3 +127,28 @@ ctest --test-dir /tmp/androidsa-native-tests --output-on-failure
 - Änderungen an UDP-Probing oder Summary-Feldern mit Host-Test und JVM-Tests absichern
 - Event-Texte bewusst wählen, da sie direkt in der Android-Oberfläche erscheinen
 - Fehlerdiagnosen so formulieren, dass die Bridge sie konsistent als Fehlerzustand interpretieren kann
+
+## Vollständiges Setup und Durchführung `run test`
+
+### Setup für den nativen Layer
+
+1. Im Repository-Root arbeiten (`/home/runner/work/AndroidSA/AndroidSA`).
+2. Voraussetzungen sicherstellen:
+   - JDK 17 (für Gradle/JVM-Tests)
+   - CMake 3.22.1+
+   - Android NDK `27.3.13750724`
+3. Optional Gradle-Wrapper ausführbar machen:
+
+   ```bash
+   chmod +x ./gradlew
+   ```
+
+### Durchführung Testlauf
+
+```bash
+cmake -S app/src/main/cpp -B /tmp/androidsa-native-tests -DANDROIDSA_ENABLE_NATIVE_TESTS=ON
+cmake --build /tmp/androidsa-native-tests --target client_state_test
+ctest --test-dir /tmp/androidsa-native-tests --output-on-failure
+./gradlew --no-daemon :app:testDebugUnitTest --stacktrace
+./gradlew --no-daemon check build --stacktrace
+```

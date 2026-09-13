@@ -31,3 +31,8 @@ Alle relevanten Änderungen dieses Projekts werden in dieser Datei dokumentiert.
 - Compose-UI nutzt stärkere asynchrone Sperrlogik via Mutex für Command-Dispatch und aktualisiert Laufzeitmetriken automatisch bei aktiver Verbindung.
 - Compose-UI enthält nun einen dynamischen Server-Browser mit Profilverwaltung, Direkt-Connect/Ping-Aktionen und Server-spezifischer Metrikverfolgung.
 - CI-Workflow nutzt nun explizites Gradle-Warmup und Retry-Strategien für Plugin-/Dependency-Auflösung, um transiente Auflösungsfehler robuster abzufangen.
+
+### Documentation
+
+- Alle Markdown-Dokumente wurden um vollständige Setup-Voraussetzungen und eine konkrete `run test`-Durchführung erweitert.
+- Einheitliche Befehle für Gradle-Warmup, JVM-Tests, native CMake/CTest-Läufe und abschließendes `./gradlew --no-daemon check build --stacktrace` wurden dokumentiert.

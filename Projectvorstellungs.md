@@ -56,3 +56,31 @@ Das Repository ist bereits so strukturiert, dass UI, Bridge und Native-Layer una
 - Entwickler, die Kotlin- und C++-Interop evaluieren möchten
 - Teams, die einen kontrollierten Multiplayer-nahen Clientzustand visualisieren wollen
 - Mitwirkende, die ein klar dokumentiertes Compose/NDK-Beispiel suchen
+
+## Vollständiges Setup und Durchführung `run test`
+
+### Setup
+
+1. Repository lokal öffnen: `/home/runner/work/AndroidSA/AndroidSA`
+2. Gradle Wrapper freischalten:
+
+   ```bash
+   chmod +x ./gradlew
+   ```
+
+3. Notwendige Toolchain:
+   - JDK 17
+   - Android SDK 34
+   - Android NDK `27.3.13750724`
+   - CMake 3.22.1+
+
+### Testdurchführung
+
+```bash
+./gradlew --no-daemon help :app:testDebugUnitTest :app:assemble --stacktrace --refresh-dependencies
+./gradlew --no-daemon :app:testDebugUnitTest --stacktrace
+cmake -S app/src/main/cpp -B /tmp/androidsa-native-tests -DANDROIDSA_ENABLE_NATIVE_TESTS=ON
+cmake --build /tmp/androidsa-native-tests --target client_state_test
+ctest --test-dir /tmp/androidsa-native-tests --output-on-failure
+./gradlew --no-daemon check build --stacktrace
+```

@@ -1,5 +1,16 @@
 # Release Checklist
 
+## 0) Vollständiges Setup und Durchführung `run test`
+
+- [ ] Arbeitsverzeichnis ist `/home/runner/work/AndroidSA/AndroidSA`
+- [ ] Gradle Wrapper ist ausführbar (`chmod +x ./gradlew`)
+- [ ] Toolchain ist installiert (JDK 17, Android SDK 34, NDK `27.3.13750724`, CMake 3.22.1+)
+- [ ] Optionaler Google-Maven-Proxy bei blockierten Netzwerken gestartet (`python3 tools/google_maven_proxy.py --port 38473`)
+- [ ] Gradle-Warmup erfolgreich (`./gradlew --no-daemon help :app:testDebugUnitTest :app:assemble --stacktrace --refresh-dependencies`)
+- [ ] JVM-Tests erfolgreich (`./gradlew --no-daemon :app:testDebugUnitTest --stacktrace`)
+- [ ] Native Host-Tests erfolgreich (`cmake -S app/src/main/cpp -B /tmp/androidsa-native-tests -DANDROIDSA_ENABLE_NATIVE_TESTS=ON && cmake --build /tmp/androidsa-native-tests --target client_state_test && ctest --test-dir /tmp/androidsa-native-tests --output-on-failure`)
+- [ ] Vollständige Validierung erfolgreich (`./gradlew --no-daemon check build --stacktrace`)
+
 ## 1) Inhalt und Dokumentation
 
 - [ ] `CHANGELOG.md` unter `Unreleased` vollständig aktualisiert
