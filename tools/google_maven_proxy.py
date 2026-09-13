@@ -430,6 +430,9 @@ public final class AppPlugin extends BasePlugin {
 
 class MirrorHandler(BaseHTTPRequestHandler):
     mirror_index: MavenMirrorIndex
+    EMPTY_JAR_BYTES = (
+        b"PK\x05\x06\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    )
 
     def do_GET(self) -> None:  # noqa: N802
         self._serve(send_body=True)
@@ -499,8 +502,11 @@ class MirrorHandler(BaseHTTPRequestHandler):
     @staticmethod
     def _synthetic_response(request_path: str) -> tuple[str, bytes] | None:
         marker_prefix = "com/android/application/com.android.application.gradle.plugin/"
-        if request_path.startswith(marker_prefix) and request_path.endswith(".pom"):
-            version = request_path.removeprefix(marker_prefix).split("/", 1)[0]
+        if not request_path.startswith(marker_prefix):
+            return None
+
+        version = request_path.removeprefix(marker_prefix).split("/", 1)[0]
+        if request_path.endswith(".pom"):
             pom = f"""<project xmlns="http://maven.apache.org/POM/4.0.0"
     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
     xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
@@ -519,6 +525,9 @@ class MirrorHandler(BaseHTTPRequestHandler):
 </project>
 """.encode("utf-8")
             return "application/xml; charset=utf-8", pom
+
+        if request_path.endswith(".jar"):
+            return "application/java-archive", MirrorHandler.EMPTY_JAR_BYTES
 
         return None
 
