@@ -1,6 +1,5 @@
 import sys
 import threading
-import time
 import unittest
 from pathlib import Path
 from unittest import mock
@@ -23,6 +22,7 @@ class MirrorHandlerInitializationTest(unittest.TestCase):
 
     def test_competing_requests_share_one_initialization(self) -> None:
         build_started = threading.Event()
+        second_request_waiting = threading.Event()
         release_build = threading.Event()
         call_count = 0
         call_count_lock = threading.Lock()
@@ -44,14 +44,23 @@ class MirrorHandlerInitializationTest(unittest.TestCase):
             except BaseException as exc:  # pragma: no cover - assertion collects unexpected failures
                 errors.append(exc)
 
-        with mock.patch.object(proxy, "MavenMirrorIndex", side_effect=build_index):
+        original_wait = self.handler._mirror_index_condition.wait
+
+        def wait_with_signal(timeout: float | None = None) -> bool:
+            second_request_waiting.set()
+            return original_wait(timeout)
+
+        with (
+            mock.patch.object(proxy, "MavenMirrorIndex", side_effect=build_index),
+            mock.patch.object(self.handler._mirror_index_condition, "wait", side_effect=wait_with_signal),
+        ):
             first = threading.Thread(target=worker)
             second = threading.Thread(target=worker)
 
             first.start()
             self.assertTrue(build_started.wait(timeout=5))
             second.start()
-            time.sleep(0.2)
+            self.assertTrue(second_request_waiting.wait(timeout=5))
             with call_count_lock:
                 self.assertEqual(call_count, 1)
 
@@ -64,6 +73,7 @@ class MirrorHandlerInitializationTest(unittest.TestCase):
 
     def test_waiting_requests_retry_after_initialization_failure(self) -> None:
         build_started = threading.Event()
+        waiting_request_blocked = threading.Event()
         release_failure = threading.Event()
         second_build_started = threading.Event()
         call_count = 0
@@ -93,14 +103,23 @@ class MirrorHandlerInitializationTest(unittest.TestCase):
                 else:  # pragma: no cover - assertion collects unexpected failures
                     raise
 
-        with mock.patch.object(proxy, "MavenMirrorIndex", side_effect=build_index):
+        original_wait = self.handler._mirror_index_condition.wait
+
+        def wait_with_signal(timeout: float | None = None) -> bool:
+            waiting_request_blocked.set()
+            return original_wait(timeout)
+
+        with (
+            mock.patch.object(proxy, "MavenMirrorIndex", side_effect=build_index),
+            mock.patch.object(self.handler._mirror_index_condition, "wait", side_effect=wait_with_signal),
+        ):
             first = threading.Thread(target=worker, args=(True,))
             second = threading.Thread(target=worker, args=(False,))
 
             first.start()
             self.assertTrue(build_started.wait(timeout=5))
             second.start()
-            time.sleep(0.2)
+            self.assertTrue(waiting_request_blocked.wait(timeout=5))
             self.assertFalse(second_build_started.is_set())
 
             release_failure.set()
