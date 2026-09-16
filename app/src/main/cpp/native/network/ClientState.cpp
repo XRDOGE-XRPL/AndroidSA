@@ -216,6 +216,13 @@ bool ClientState::ensureUdpRuntimeLocked(const std::string& serverAddress) {
         return false;
     }
 
+    std::string host;
+    std::string portText;
+    if (!parseSocketEndpoint(serverAddress, &host, &portText)) {
+        diagnostics_ = "Unable to resolve UDP endpoint for " + serverAddress;
+        return false;
+    }
+
     closeUdpRuntimeLocked();
     udpSocketFd_ = ::socket(AF_INET, SOCK_DGRAM, 0);
     if (udpSocketFd_ < 0) {
@@ -230,16 +237,20 @@ bool ClientState::ensureUdpRuntimeLocked(const std::string& serverAddress) {
 
     sockaddr_in localAddress {};
     localAddress.sin_family = AF_INET;
-    localAddress.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
     localAddress.sin_port = 0;
+    localAddress.sin_addr.s_addr = isLoopbackLikeHost(host) ? htonl(INADDR_LOOPBACK) : htonl(INADDR_ANY);
     if (::bind(udpSocketFd_, reinterpret_cast<sockaddr*>(&localAddress), sizeof(localAddress)) != 0) {
         diagnostics_ = std::string("UDP bind failed: ") + std::strerror(errno);
         closeUdpRuntimeLocked();
         return false;
     }
 
+    if (!isLoopbackLikeHost(host)) {
+        transport_ = "real-udp";
+    } else {
+        transport_ = "RakNet-compatible UDP";
+    }
     udpRuntimeReady_ = true;
-    (void)destination;
     return true;
 }
 
@@ -270,7 +281,7 @@ int ClientState::sendUdpProbeLocked(const std::vector<unsigned char>& payload) {
         destination = localLoopback;
     }
 
-    auto written = ::sendto(
+    const auto written = ::sendto(
         udpSocketFd_,
         reinterpret_cast<const char*>(payload.data()),
         payload.size(),
@@ -278,17 +289,6 @@ int ClientState::sendUdpProbeLocked(const std::vector<unsigned char>& payload) {
         reinterpret_cast<sockaddr*>(&destination),
         sizeof(destination)
     );
-    if (written <= 0 && destination.sin_addr.s_addr != htonl(INADDR_LOOPBACK)) {
-        localLoopback.sin_port = boundAddress.sin_port;
-        written = ::sendto(
-            udpSocketFd_,
-            reinterpret_cast<const char*>(payload.data()),
-            payload.size(),
-            0,
-            reinterpret_cast<sockaddr*>(&localLoopback),
-            sizeof(localLoopback)
-        );
-    }
     if (written > 0) {
         ++packetsSent_;
         return 1;

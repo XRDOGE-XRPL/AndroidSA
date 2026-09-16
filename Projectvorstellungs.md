@@ -2,13 +2,19 @@
 
 ## Kurzbeschreibung
 
-AndroidSA ist ein Android-Prototyp für einen SA:MP-/Open:MP-orientierten Client. Das Repository verbindet eine moderne Jetpack-Compose-Oberfläche mit einer Kotlin/JNI-Brücke und einem nativen C++20-Kern. Der Prototyp ist derzeit mit ca. 85-90% Fertigstellung in einem stabilen, dokumentierten und testbaren Zustand und zeigt bereits den Kern einer realen Client-/Runtime-Architektur.
+AndroidSA ist ein Android-Prototyp für einen SA:MP-/Open:MP-orientierten Client. Das Repository verbindet eine Jetpack-Compose-Oberfläche mit einer Kotlin/JNI-Brücke und einem nativen C++20-Kern. Der Schwerpunkt liegt auf einem vollständigen, dokumentierten Laufzeitmodell für Verbindungsstatus, Serverprofile, Diagnosemeldungen, Event-Historie, Paketstatistiken und UDP-Transport-Probing.
 
-## Aktueller Projektstatus
+## Aktueller Stand
 
-- Prototypstatus: ca. 85-90% fertig
-- fertig: UI, Bridge, Zustandsmodell, Event-Historie, native UDP-Proben, CMake/CTest-Tests, JVM-Unit-Tests
-- offen/weiterentwicklungswürdig: größere Remote-Transport-Szenarien, verfeinerte Android-/Emulator-Integration und Release-Readiness der Letztvalidierung
+Der Prototyp befindet sich im finalen Abschlussstadium. Die Kernarchitektur und die wichtigsten Qualitätsbereiche sind bereits abgeschlossen:
+
+- Jetpack Compose UI mit Server-Browser und Runtime-Stats
+- Kotlin/JNI-Bridge mit 11-Felder Summary-Format
+- C++20 ClientState mit Mutex-geschütztem Zustand und Event-Historie
+- UDP-Probe- und Paket-Erkenner für Loopback- und Remote-Targets
+- native Host-Tests via CMake/CTest
+- JVM-Unit-Tests via Gradle
+- lokaler Maven-Proxy für blockierte Build-Umgebungen
 
 ## Zentrale Bestandteile
 
@@ -19,21 +25,22 @@ Die Compose-UI zeigt:
 - aktuellen Verbindungsstatus
 - Transportprofil
 - Serveradresse, Spielername und Diagnostics
-- Latenz und Paketstatistiken
-- letzte Commands und native Ereignisse
-- Server-Browser mit definierten und benutzerdefinierten Profilen
+- Latenz, Paketzähler, TX/RX-Ratio und Verbindungsversuche
+- letzte Commands und native Events
+- Server-Browser mit Standard- und benutzerdefinierten Profilen
+- Bedien- und Testaktionen für Connect, Reconnect, Disconnect, Reset, Status und Simulate
 
 ### Kotlin/JNI-Bridge
 
-Die Bridge validiert Commands, lädt die Native-Library, verarbeitet den elfteiligen Summary und normalisiert native Fehlerzustände für die UI. Ihre Laufzeitdaten kommen aus dem nativen `ClientState` und werden mit Fallbacks und Validierungen in die JVM-Schicht übernommen.
+Die Bridge validiert Commands, lädt die Native-Library, verarbeitet den elfteiligen Summary und normalisiert native Fehlerzustände für die UI. Die JVM-Seite verarbeitet dabei Fallback-Werte, Diagnose-Normalisierung und Event-Parsing robust und konsistent.
 
 ### Nativer C++20-Kern
 
-Der C++-Layer verwaltet den Clientzustand thread-sicher, verarbeitet Commands und simuliert Netzwerkaktivität über einen Loopback- und real-udp / remote-udp-Pfad. Empfangene Probe-Pakete werden dekodiert, als readable Events in die Historie geschrieben und für die UI als kompaktes, serialisiertes Laufzeitbild zugänglich gemacht.
+Der C++-Layer verwaltet den Clientzustand thread-sicher, verarbeitet Commands, erzeugt die Summary-Zeichenkette und führt echte UDP-Probes aus. Empfangene Payloads werden dekodiert, als Events in die Historie geschrieben und für die UI als kompakter Status-Report zugänglich gemacht.
 
-## 11 Laufzeitfelder der JNI-Bridge
+## 11 Laufzeitfelder
 
-Die Java/Kotlin-Seite verarbeitet einen elfspaltigen Summary, der exakt wie folgt aufgebaut ist:
+Die Java/Kotlin-Seite verarbeitet einen elfspaltigen Summary, exakt in diesem Format:
 
 ```text
 AndroidSA|<transport>|<state>|<diagnostics>|<server>|<player>|<latencyMs>|<packetsSent>|<packetsReceived>|<connectionAttempts>|<lastCommand>
@@ -53,75 +60,64 @@ Die 11 Felder sind:
 10. `connectionAttempts`
 11. `lastCommand`
 
-Die Parsing-Logik in `NativeBridge.kt` ergänzt Fallback-Werte, sobald Segmente fehlen, leer sind oder numerische Werte nicht parsebar sind.
+Die Parsing-Logik sorgt für robuste Fallbacks, wenn Segmente fehlen, leer sind oder numerische Felder nicht validierbar sind.
 
-## Event-Historie und native Paketlogik
+## Event-Historie und Paketanalyse
 
-Die Event-Historie ist eine kompakte, deterministische Folge von Ereignissen aus dem nativen Layer. Sie enthält unter anderem:
+Die Event-Historie ist eine kompakte Folge aus native Paket- und Statusereignissen. Typische Einträge sind:
 
 - `Ping acknowledged by native runtime`
 - `Connected to ... (udp tx=..., rx=...)`
-- `Reconnected ...`
-- `Inbound traffic simulation recorded ...`
-- `Outbound traffic simulation recorded ...`
+- `Reconnect flow completed ...`
 - `RX RakNet connected ping`
 - `RX Open:MP/SA:MP RPC wrapper ...`
+- `Session reset to initial state`
 
-Bei UDP-Inputs werden Pakete nach RakNet-/Open:MP-Mustern analysiert. Vom Bytestream werden Packet-IDs und RPC-Wrapper-Details extrahiert; daraus entstehen lesbare, kurze Eventzeilen, die sowohl im nativen State als auch in der UI-Beschriftung verwendet werden.
-
-Die native Historie hält eine kompakte Anzahl von Einträgen; die JVM-Seite begrenzt die Anzeige zusätzlich auf die jüngsten 48 Events.
+Bei UDP-Inputs werden Payloads nach RakNet-/Open:MP-Mustern analysiert. Packet-IDs und RPC-Wrapper-Details werden aus dem Bytestream extrahiert und als lesbare Eventzeilen weitergereicht. Dadurch bleibt die History sowohl für Debugging als auch für UI-Darstellung nutzbar.
 
 ## Mutex-Sperren-Architektur
 
 Der zentrale Synchronisationspunkt liegt in `ClientState`:
 
-- `std::mutex mutex_` schützt den Laufzeitzustand
-- `std::lock_guard` schützt `summary()`, `recentEvents()`, `dispatchCommand()` und alle Zustandsänderungen
-- alle Paketzähler, Event-Einträge, Transport- und Diagnose-Änderungen erfolgen atomar innerhalb dieser Sperren
+- `std::mutex mutex_` schützt Laufzeitstatus und Paketzähler
+- `std::lock_guard` schützt `summary()`, `recentEvents()` und `dispatchCommand()`
+- Event-Einträge, Transportwechsel und Diagnoseänderungen erfolgen atomar in derselben Sperre
 
-Dadurch bleiben Paketzähler, Event-Historie und Statusübergänge bei parallelen Anfragen konsistent. Die UI-Seite nutzt ebenfalls einen `Mutex` bei Command-Dispatches, damit keine zwei gleichzeitigen UI-Aktionen denselben Laufzeitzustand in konfligierende Zustände schreiben.
+Die UI-Seite nutzt ebenfalls einen `Mutex` für Command-Dispatches, sodass keine zwei parallelen Actions denselben Native-Zustand in widersprüchliche Zustände schreiben.
 
-## Typische Einsatzfelder im aktuellen Stand
+## UDP-Netzwerkmodi
 
-- technisches Grundgerüst für spätere Multiplayer-Clientlogik
-- Demo- und Testprojekt für Kotlin/JNI-Interop mit C++20
-- Basis für Diagnose-, Status- und Verbindungs-Workflows auf Android
-- Referenzprojekt für Compose + NDK + CMake in einem GitHub-Repository
+Der native Layer unterstützt zwei wesentliche Betriebsarten für UDP-Probe-Flows:
+
+### Loopback-Modus
+
+Der Loopback-Pfad nutzt `socket(AF_INET, SOCK_DGRAM, 0)`, bindet auf `127.0.0.1` bzw. `INADDR_LOOPBACK` und arbeitet non-blocking. Dadurch bleibt der Host-Testpfad schnell, deterministisch und reproduzierbar, ohne ein echtes Remote-Target zu benötigen.
+
+### real-udp / remote-udp
+
+Wenn der Host kein Loopback-ähnlicher Wert ist, wird der Endpoint mit `getaddrinfo()` aufgelöst und als `sockaddr_in` gesetzt. Anschließend werden echte UDP-Pakete mit `sendto()` und `recvfrom()` an den konfigurierten Remote-Endpunkt gesendet. Das Remote-Szenario ist bewusst eigenständig vom Loopback-Testpfad getrennt und nur dann aktiv, wenn ein echtes Remote-Target verwendet wird.
+
+Damit bleiben lokale native Tests stabil, während echte Produktivserver sauber adressiert werden können.
+
+## Typische Einsatzfelder
+
+- technische Grundlage für spätere Multiplayer-Clientlogik
+- Demo-/Prototyp-Stack für Kotlin/JNI-Interop mit C++20
+- native Diagnose-, Status- und Verbindungs-Repräsentation auf Android
+- Referenzarchitektur für Compose + NDK + CMake in einem GitHub-Repository
 
 ## Technische Highlights
 
 - Jetpack Compose als UI-Schicht
-- Kotlin mit JVM-Target 17 und Java 17
+- Kotlin mit JVM-Target 17
 - Android SDK 34 und minSdk 26
 - C++20 mit CMake
-- native Host-Tests plus JVM-Unit-Tests
-- GitHub Actions Workflow für Build, Tests und Artefakte
+- native Host-Tests und JVM-Unit-Tests
+- lokaler Google-Maven-Proxy als Build-Resilience-Mechanismus
 
-## Für wen das Projekt interessant ist
+## Validierung und Release-Readiness
 
-- Android-Entwickler mit Interesse an NDK-/JNI-Integration
-- Entwickler, die Kotlin- und C++-Interop evaluieren möchten
-- Teams, die einen kontrollierten Multiplayer-nahen Clientzustand visualisieren wollen
-- Mitwirkende, die ein gut dokumentiertes Compose/NDK-Beispiel für Diagramme und Architektur-Reviews nutzen möchten
-
-## Vollständiges Setup und Durchführung `run test`
-
-### Setup
-
-1. Repository lokal öffnen und in das Root-Verzeichnis wechseln.
-2. Gradle Wrapper freischalten:
-
-   ```bash
-   chmod +x ./gradlew
-   ```
-
-3. Toolchain sicherstellen:
-   - JDK 17
-   - Android SDK 34
-   - Android NDK `27.3.13750724`
-   - CMake 3.22.1+
-
-### Testdurchführung
+Die folgenden Validierungen sind in der finalen Projektphase vorgesehen und dokumentiert:
 
 ```bash
 ./gradlew --no-daemon help :app:testDebugUnitTest :app:assemble --stacktrace --refresh-dependencies
@@ -131,4 +127,33 @@ cmake --build build/native-tests --target client_state_test
 ctest --test-dir build/native-tests --output-on-failure
 ./gradlew --no-daemon check build --stacktrace
 ```
+
+## Setup
+
+1. Repository klonen und in das Root-Verzeichnis wechseln.
+2. Gradle Wrapper freischalten:
+
+```bash
+chmod +x ./gradlew
+```
+
+3. Toolchain prüfen:
+   - JDK 17
+   - Android SDK 34
+   - Android NDK `27.3.13750724`
+   - CMake 3.22.1+
+
+4. Falls Google Maven blockiert ist, lokalen Proxy starten:
+
+```bash
+python3 tools/google_maven_proxy.py --port 38473
+```
+
+5. Dann Gradle mit Proxy konfigurieren:
+
+```bash
+ANDROIDSA_GOOGLE_MAVEN_URL=http://127.0.0.1:38473/ ./gradlew --no-daemon help :app:testDebugUnitTest :app:assemble --stacktrace --refresh-dependencies
+```
+
+Damit ist der Prototyp in einem stabilen, testbaren, dokumentierten Zustand für lokale Entwicklung, Host-Tests und mobile Android-Validierung.
 
