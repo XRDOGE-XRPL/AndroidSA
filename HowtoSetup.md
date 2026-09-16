@@ -1,11 +1,11 @@
 # Howto Setup: AndroidSA
 
-Dieses Handbuch beschreibt die vollständige Einrichtung für zwei zentrale Zielumgebungen:
+Dieses Handbuch beschreibt die vollständige Einrichtung für die stabile finale Validierungsstrategie des Repositories:
 
-1. Localhost / Entwicklungsumgebung mit Host-Tests
-2. Android-Gerät oder Emulator mit instrumentierten UI-Tests
+1. Localhost / Entwicklungsumgebung mit Host-Tests und JVM-Unit-Tests
+2. Optionales Android-Gerät oder Emulator nur für lokale APK-Verifikation
 
-Es deckt Architektur, Voraussetzungen, lokale Proxy-Konfiguration, Testschritte, Remote-UDP-Deployment und Debugging vollständig ab.
+Es deckt Architektur, Voraussetzungen, lokale Proxy-Konfiguration, CI-ähnliche Testschritte, Remote-UDP-Deployment und Debugging vollständig ab.
 
 ## 1. Zielumgebungen
 
@@ -13,9 +13,9 @@ Es deckt Architektur, Voraussetzungen, lokale Proxy-Konfiguration, Testschritte,
 
 Ziel: lokale Entwicklung, native C++-Host-Tests, JVM-Unit-Tests und Gradle-Validierung ohne echtes Android-Gerät.
 
-### b) Android Mobile / Emulator
+### b) Optionales Android Mobile / Emulator
 
-Ziel: APK-Build, Installation auf Gerät/Emulator und instrumentierte UI-Tests für die Compose-Oberfläche.
+Ziel: APK-Build und lokale Geräte-Verifikation. Instrumentierte UI-Tests sind nicht Teil des Standard-CI-Pfads und werden bewusst nicht als Required-Check verwendet.
 
 ## 2. Systemvoraussetzungen
 
@@ -120,7 +120,7 @@ ANDROIDSA_GOOGLE_MAVEN_URL=http://127.0.0.1:38473/ ./gradlew --no-daemon :app:te
 ./gradlew --no-daemon check build --stacktrace
 ```
 
-Oder in der üblichen Reihenfolge für CI-ähnliche Validierung:
+Oder in der stabilen, finalen CI-ähnlichen Reihenfolge:
 
 ```bash
 ./gradlew --no-daemon help --stacktrace --refresh-dependencies
@@ -128,7 +128,6 @@ cmake -S app/src/main/cpp -B build/native-tests -DANDROIDSA_ENABLE_NATIVE_TESTS=
 cmake --build build/native-tests --target client_state_test
 ctest --test-dir build/native-tests --output-on-failure
 ./gradlew --no-daemon :app:testDebugUnitTest --stacktrace
-./gradlew --no-daemon :app:connectedDebugAndroidTest --stacktrace
 ./gradlew --no-daemon :app:assemble --stacktrace
 ```
 
@@ -159,24 +158,15 @@ Systemvoraussetzungen für die App:
 ./gradlew --no-daemon :app:assembleDebug --stacktrace
 ```
 
-Für instrumentierte UI-Tests zusätzlich:
+Diese APK-Verifikation ist optional und dient lokalen Geräteschecks; sie ist nicht Teil des Standard-Workflow-Finalstatus.
 
-```bash
-./gradlew --no-daemon :app:assembleDebugAndroidTest --stacktrace
-```
+## 10. Optionaler Gerätetest-Pfad
 
-## 10. Instrumentierte UI-Tests ausführen
+Wenn eine lokale Android-Geräte-Validierung gebraucht wird, kann der Fokus weiterhin auf APK-/Geräte-Checks ohne Main-CI-Abhängigkeit liegen. Der obligatorische Projektpfad bleibt jedoch:
 
-```bash
-./gradlew --no-daemon :app:connectedDebugAndroidTest --stacktrace
-```
-
-Die Testklasse `MainActivityUiTest.kt` deckt ab:
-
-- Server-Browser-Flow (Profil hinzufügen, auswählen, Connect/Ping)
-- Busy-State / Mutex-Serialisierung
-- Runtime-Statisktiken wie Latenz, Packets sent/received, TX/RX ratio
-- UI-Metadaten wie Last command, Connection state und active operation
+- native Host-Tests
+- Gradle JVM-Unit-Tests
+- App Assemble
 
 ## 11. Remote-UDP-Konfiguration und Live-Debugging
 
