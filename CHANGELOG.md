@@ -6,33 +6,31 @@ Alle relevanten Änderungen dieses Projekts werden in dieser Datei dokumentiert.
 
 ### Added
 
-- Erweiterter nativer Laufzeitstatus mit Serverprofil, Spielerprofil, Latenz, Paket-Zählern, Verbindungsversuchen, letztem Command und Event-Historie.
-- Neue native Commands:
-  - `connect:<server>` für direkten Verbindungsaufbau mit Serverprofil
-  - `reconnect` für erneuten Verbindungsaufbau
-  - `player:<name>` für Spielerprofil-Wechsel
-  - `latency:<ms>` für Latenz-Simulation
-  - `simulate:rx` und `simulate:tx` für Traffic-Simulation
-  - `fail:<reason>` für reproduzierbare Fehlerzustände
-- Geführte Compose-Steuerung für Server, Spieler, Transport, Latenz, Diagnostics und Event-Ansicht.
-- JNI-Event-Log-Bridge über `nativeGetRecentEvents()`.
-- `Projectvorstellungs.md` als kompakte, deutschsprachige Projektvorstellung für Stakeholder und neue Mitwirkende.
+- vollständige UI-Test-Abdeckung für Runtime-Workflows, Serverprofil-Interaktionen und Event-Historie
+- C++-Socket-Erweiterungen für loopback- und real-udp-/remote-udp-basierte Probe-Flows
+- Native Host-Test-Integration über CMake/CTest mit einem `client_state_test`-Ziel
+- erweitertes JNI-/Summary-Schema mit 11 Laufzeitfeldern und deterministischer Fehlernormalisierung
+- erweiterter Command-Satz inklusive `connect:<server>`, `transport:<value>`, `diagnostics:<text>`, `simulate:rx|tx` und `fail:<reason>`
+- vollständige Dokumentation der Projektarchitektur, Build- und Testvalidierung sowie Release-Voraussetzungen
 
 ### Changed
 
-- Native Summary von 4 auf 11 Felder erweitert, damit die UI einen vollständigen Laufzeit-Snapshot anzeigen kann.
-- Command-Validierung in Kotlin erweitert auf `connect:<server>`, `player:<name>`, `latency:<ms>`, `simulate:<value>` und `fail:<reason>`.
-- Native Command-Verarbeitung in C++ erweitert um reichere Zustandsübergänge, Statistiken und Event-Aufzeichnung.
-- Kotlin- und Native-Tests decken jetzt Parsing, Event-Logik und neue Commands ab.
-- Dokumentation für Architektur, Commands, UI-Flows, Laufzeitverhalten und Release-Prozess umfassend erweitert.
-- Native Paket- und Verbindungsstatistiken werden für zentrale Flows jetzt über reale UDP-`sendto`/`recvfrom`-Operationen statt reinem Zähler-Mocking erhoben.
-- Native Event-Historie enthält dekodierte RakNet/Open:MP-orientierte Paketereignisse aus dem Bytestream-Pfad (inkl. RPC-Wrapper-Erkennung).
-- NativeBridge normalisiert Snapshot-Daten robuster und propagiert native Fehlerdiagnostik deterministisch in die JVM/UI, wenn Dispatches scheitern.
-- Compose-UI nutzt stärkere asynchrone Sperrlogik via Mutex für Command-Dispatch und aktualisiert Laufzeitmetriken automatisch bei aktiver Verbindung.
-- Compose-UI enthält nun einen dynamischen Server-Browser mit Profilverwaltung, Direkt-Connect/Ping-Aktionen und Server-spezifischer Metrikverfolgung.
-- CI-Workflow nutzt nun explizites Gradle-Warmup und Retry-Strategien für Plugin-/Dependency-Auflösung, um transiente Auflösungsfehler robuster abzufangen.
+- Architektur-Doku auf C++20-Kern + JNI-Bridge + Compose-UI aktualisiert und mit exakten Build-/Testbefehlen ergänzt
+- Laufzeitstatus auf 11 Felder erweitert und in Kotlin/Nativschnittstelle konsistent synchronisiert
+- UDP-Probe- und Event-Logik von reinem Zähler-Mocking auf reale `sendto`/`recvfrom`-Flüsse und dekodierte Paket-Events erweitert
+- Kotlin- und C++-Validierung auf exakte Command-Regeln und robustere Fehlerdiagnostik erweitert
+- CMake-Konfiguration und Host-Test-Setup stabilisiert, inklusive sauberer `build/native-tests`-Ausgabe und `ctest`-Integration
+- UI- und Bridge-Flow auf Mutex-basierte Serialisierung und konsistente Latenz-/Paketaktualisierung angepasst
+
+### Fixed
+
+- CMake- und Host-Test-Sets für native Laufzeit- und Zustandsvalidierung korrigiert
+- falsche oder unvollständige Summary-/Parser-Interpretationen in der JVM-Seite bereinigt
+- Fälle mit fehlerhaften UDP-Loopback-/Remote-Resolving-Prozessen und fehlenden Event-Einträgen stabilisiert
+- transiente Gradle-/Plugin-Auflösungsprobleme durch Warmup- und Retry-Strategie in den dokumentierten CI-Checks entschärft
 
 ### Documentation
 
-- Alle Markdown-Dokumente wurden um vollständige Setup-Voraussetzungen und eine konkrete `run test`-Durchführung erweitert.
-- Einheitliche Befehle für Gradle-Warmup, JVM-Tests, native CMake/CTest-Läufe und abschließendes `./gradlew --no-daemon check build --stacktrace` wurden dokumentiert.
+- README, Projektvorstellung und Release-Checklist auf den aktuellen Projektstatus und das gültige Befehls- und Test-Set aktualisiert
+- lokale Validierung als Pflichtvoraussetzung vor emulatorbasierten Android-CI-Läufen dokumentiert
+- UDP-Netzwerkmodi (Loopback und real-udp / remote-udp) und die Mutex-/Event-Historie klar beschrieben

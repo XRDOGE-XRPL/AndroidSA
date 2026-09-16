@@ -2,11 +2,13 @@
 
 ## Kurzbeschreibung
 
-AndroidSA ist ein Android-Prototyp für einen SA:MP- / Open:MP-orientierten Client. Das Projekt verbindet eine moderne Jetpack-Compose-Oberfläche mit einer Kotlin/JNI-Brücke und einem nativen C++20-Kern.
+AndroidSA ist ein Android-Prototyp für einen SA:MP-/Open:MP-orientierten Client. Das Repository verbindet eine moderne Jetpack-Compose-Oberfläche mit einer Kotlin/JNI-Brücke und einem nativen C++20-Kern. Der Prototyp ist derzeit mit ca. 85-90% Fertigstellung in einem stabilen, dokumentierten und testbaren Zustand und zeigt bereits den Kern einer realen Client-/Runtime-Architektur.
 
-## Was das Projekt zeigt
+## Aktueller Projektstatus
 
-AndroidSA demonstriert, wie ein nativer Multiplayer-nahe Laufzeitkern sauber in eine Android-App eingebunden werden kann. Die App macht interne Zustände sichtbar, erlaubt geführte und manuelle Commands und bildet Netzwerkverhalten über reproduzierbare UDP-Probes ab.
+- Prototypstatus: ca. 85-90% fertig
+- fertig: UI, Bridge, Zustandsmodell, Event-Historie, native UDP-Proben, CMake/CTest-Tests, JVM-Unit-Tests
+- offen/weiterentwicklungswürdig: größere Remote-Transport-Szenarien, verfeinerte Android-/Emulator-Integration und Release-Readiness der Letztvalidierung
 
 ## Zentrale Bestandteile
 
@@ -16,26 +18,75 @@ Die Compose-UI zeigt:
 
 - aktuellen Verbindungsstatus
 - Transportprofil
-- Serveradresse und Spielername
+- Serveradresse, Spielername und Diagnostics
 - Latenz und Paketstatistiken
 - letzte Commands und native Ereignisse
-
-Zusätzlich bietet sie einen kleinen Server-Browser mit Standard- und benutzerdefinierten Profilen.
+- Server-Browser mit definierten und benutzerdefinierten Profilen
 
 ### Kotlin/JNI-Bridge
 
-Die Bridge validiert Commands, lädt die Native-Library, liest Laufzeitdaten aus und normalisiert Fehlerzustände für die UI.
+Die Bridge validiert Commands, lädt die Native-Library, verarbeitet den elfteiligen Summary und normalisiert native Fehlerzustände für die UI. Ihre Laufzeitdaten kommen aus dem nativen `ClientState` und werden mit Fallbacks und Validierungen in die JVM-Schicht übernommen.
 
-### Nativer Kern in C++20
+### Nativer C++20-Kern
 
-Der C++-Layer verwaltet den Clientzustand thread-sicher, verarbeitet Commands und simuliert Netzwerkaktivität über Loopback-UDP. Empfangene Probe-Pakete werden als lesbare Events aufbereitet.
+Der C++-Layer verwaltet den Clientzustand thread-sicher, verarbeitet Commands und simuliert Netzwerkaktivität über einen Loopback- und real-udp / remote-udp-Pfad. Empfangene Probe-Pakete werden dekodiert, als readable Events in die Historie geschrieben und für die UI als kompaktes, serialisiertes Laufzeitbild zugänglich gemacht.
+
+## 11 Laufzeitfelder der JNI-Bridge
+
+Die Java/Kotlin-Seite verarbeitet einen elfspaltigen Summary, der exakt wie folgt aufgebaut ist:
+
+```text
+AndroidSA|<transport>|<state>|<diagnostics>|<server>|<player>|<latencyMs>|<packetsSent>|<packetsReceived>|<connectionAttempts>|<lastCommand>
+```
+
+Die 11 Felder sind:
+
+1. `clientName`
+2. `transport`
+3. `connectionState`
+4. `diagnostics`
+5. `serverAddress`
+6. `playerName`
+7. `latencyMs`
+8. `packetsSent`
+9. `packetsReceived`
+10. `connectionAttempts`
+11. `lastCommand`
+
+Die Parsing-Logik in `NativeBridge.kt` ergänzt Fallback-Werte, sobald Segmente fehlen, leer sind oder numerische Werte nicht parsebar sind.
+
+## Event-Historie und native Paketlogik
+
+Die Event-Historie ist eine kompakte, deterministische Folge von Ereignissen aus dem nativen Layer. Sie enthält unter anderem:
+
+- `Ping acknowledged by native runtime`
+- `Connected to ... (udp tx=..., rx=...)`
+- `Reconnected ...`
+- `Inbound traffic simulation recorded ...`
+- `Outbound traffic simulation recorded ...`
+- `RX RakNet connected ping`
+- `RX Open:MP/SA:MP RPC wrapper ...`
+
+Bei UDP-Inputs werden Pakete nach RakNet-/Open:MP-Mustern analysiert. Vom Bytestream werden Packet-IDs und RPC-Wrapper-Details extrahiert; daraus entstehen lesbare, kurze Eventzeilen, die sowohl im nativen State als auch in der UI-Beschriftung verwendet werden.
+
+Die native Historie hält eine kompakte Anzahl von Einträgen; die JVM-Seite begrenzt die Anzeige zusätzlich auf die jüngsten 48 Events.
+
+## Mutex-Sperren-Architektur
+
+Der zentrale Synchronisationspunkt liegt in `ClientState`:
+
+- `std::mutex mutex_` schützt den Laufzeitzustand
+- `std::lock_guard` schützt `summary()`, `recentEvents()`, `dispatchCommand()` und alle Zustandsänderungen
+- alle Paketzähler, Event-Einträge, Transport- und Diagnose-Änderungen erfolgen atomar innerhalb dieser Sperren
+
+Dadurch bleiben Paketzähler, Event-Historie und Statusübergänge bei parallelen Anfragen konsistent. Die UI-Seite nutzt ebenfalls einen `Mutex` bei Command-Dispatches, damit keine zwei gleichzeitigen UI-Aktionen denselben Laufzeitzustand in konfligierende Zustände schreiben.
 
 ## Typische Einsatzfelder im aktuellen Stand
 
 - technisches Grundgerüst für spätere Multiplayer-Clientlogik
-- Demo- und Testprojekt für JNI-Kommunikation zwischen Kotlin und C++
+- Demo- und Testprojekt für Kotlin/JNI-Interop mit C++20
 - Basis für Diagnose-, Status- und Verbindungs-Workflows auf Android
-- Übungs- und Referenzprojekt für Compose + NDK + CMake in einem Repository
+- Referenzprojekt für Compose + NDK + CMake in einem GitHub-Repository
 
 ## Technische Highlights
 
@@ -46,29 +97,25 @@ Der C++-Layer verwaltet den Clientzustand thread-sicher, verarbeitet Commands un
 - native Host-Tests plus JVM-Unit-Tests
 - GitHub Actions Workflow für Build, Tests und Artefakte
 
-## Aktueller Mehrwert des Repositories
-
-Das Repository ist bereits so strukturiert, dass UI, Bridge und Native-Layer unabhängig weiterentwickelt werden können. Gleichzeitig bleibt das Verhalten durch vorhandene Tests und dokumentierte Command-Regeln nachvollziehbar.
-
 ## Für wen das Projekt interessant ist
 
-- Android-Entwickler mit Interesse an NDK-Integration
+- Android-Entwickler mit Interesse an NDK-/JNI-Integration
 - Entwickler, die Kotlin- und C++-Interop evaluieren möchten
 - Teams, die einen kontrollierten Multiplayer-nahen Clientzustand visualisieren wollen
-- Mitwirkende, die ein klar dokumentiertes Compose/NDK-Beispiel suchen
+- Mitwirkende, die ein gut dokumentiertes Compose/NDK-Beispiel für Diagramme und Architektur-Reviews nutzen möchten
 
 ## Vollständiges Setup und Durchführung `run test`
 
 ### Setup
 
-1. Repository lokal öffnen und in das Repository-Root wechseln.
+1. Repository lokal öffnen und in das Root-Verzeichnis wechseln.
 2. Gradle Wrapper freischalten:
 
    ```bash
    chmod +x ./gradlew
    ```
 
-3. Notwendige Toolchain:
+3. Toolchain sicherstellen:
    - JDK 17
    - Android SDK 34
    - Android NDK `27.3.13750724`
@@ -76,4 +123,12 @@ Das Repository ist bereits so strukturiert, dass UI, Bridge und Native-Layer una
 
 ### Testdurchführung
 
-Für den vollständigen projektweiten `run test` mit allen Schritten (Gradle-Warmup, JVM-Tests, native Host-Tests, abschließendes `check build`) siehe `/README.md`.
+```bash
+./gradlew --no-daemon help :app:testDebugUnitTest :app:assemble --stacktrace --refresh-dependencies
+./gradlew --no-daemon :app:testDebugUnitTest --stacktrace
+cmake -S app/src/main/cpp -B build/native-tests -DANDROIDSA_ENABLE_NATIVE_TESTS=ON
+cmake --build build/native-tests --target client_state_test
+ctest --test-dir build/native-tests --output-on-failure
+./gradlew --no-daemon check build --stacktrace
+```
+

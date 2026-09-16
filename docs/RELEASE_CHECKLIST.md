@@ -1,5 +1,19 @@
 # Release Checklist
 
+## Vor dem Emulator-/Device-CI: Lokale Validierung ist Pflicht
+
+Vor jedem zukünftigen Android-Emulator-/Device-Run muss die lokale Basisvalidierung grün sein. Ohne erfolgreiche Host- und JVM-Tests ist ein späterer emulatorbasierter CI-Lauf nicht als freigegeben zu betrachten.
+
+- [ ] Repository-Root ist aktiv und `./gradlew` ist ausführbar
+- [ ] Gradle-Warmup und lokale Dependency-Auflösung erfolgreich: `./gradlew --no-daemon help :app:testDebugUnitTest :app:assemble --stacktrace --refresh-dependencies`
+- [ ] Native Host-Tests erfolgreich:
+  - `cmake -S app/src/main/cpp -B build/native-tests -DANDROIDSA_ENABLE_NATIVE_TESTS=ON`
+  - `cmake --build build/native-tests --target client_state_test`
+  - `ctest --test-dir build/native-tests --output-on-failure`
+- [ ] JVM-Unit-Tests erfolgreich: `./gradlew --no-daemon :app:testDebugUnitTest --stacktrace`
+- [ ] Gesamtbuild/Checks erfolgreich: `./gradlew --no-daemon check build --stacktrace`
+- [ ] Wenn Google Maven blockiert ist, lokaler Proxy gestartet und in der Umgebung gesetzt: `ANDROIDSA_GOOGLE_MAVEN_URL=http://127.0.0.1:38473/`
+
 ## 0) Vollständiges Setup und Durchführung `run test`
 
 - [ ] Befehle werden im Repository-Root ausgeführt
@@ -33,6 +47,7 @@
 - [ ] Summary-Format zwischen Kotlin und C++ ist konsistent
 - [ ] Command-Regeln (`transport`, `connect`, `player`, `latency`, `diagnostics`, `simulate`, `fail`) bleiben synchron
 - [ ] UI zeigt Status, Diagnostics, Server-/Playerprofil und Runtime-Metriken korrekt an
+- [ ] UDP-Pfad für Loopback und real-udp / remote-udp bleibt stabil und dokumentiert
 - [ ] Keine unerwünschten Änderungen außerhalb des Release-Scopes enthalten
 
 ## 4) Sicherheitsprüfung
