@@ -123,12 +123,13 @@ ANDROIDSA_GOOGLE_MAVEN_URL=http://127.0.0.1:38473/ ./gradlew --no-daemon :app:te
 Oder in der üblichen Reihenfolge für CI-ähnliche Validierung:
 
 ```bash
-./gradlew --no-daemon help :app:testDebugUnitTest :app:assemble --stacktrace --refresh-dependencies
-./gradlew --no-daemon :app:testDebugUnitTest --stacktrace
+./gradlew --no-daemon help --stacktrace --refresh-dependencies
 cmake -S app/src/main/cpp -B build/native-tests -DANDROIDSA_ENABLE_NATIVE_TESTS=ON
 cmake --build build/native-tests --target client_state_test
 ctest --test-dir build/native-tests --output-on-failure
-./gradlew --no-daemon check build --stacktrace
+./gradlew --no-daemon :app:testDebugUnitTest --stacktrace
+./gradlew --no-daemon :app:connectedDebugAndroidTest --stacktrace
+./gradlew --no-daemon :app:assemble --stacktrace
 ```
 
 ## 8. Android-Gerät / Emulator vorbereiten

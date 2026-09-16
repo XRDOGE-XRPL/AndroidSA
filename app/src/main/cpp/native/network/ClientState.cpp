@@ -75,6 +75,10 @@ bool containsInvalidSummaryCharacters(std::string_view value) {
     });
 }
 
+bool isSocketTimeoutError(int err) {
+    return err == EAGAIN || err == EWOULDBLOCK || err == ETIMEDOUT;
+}
+
 bool extractExactCommandValue(
     const std::string& sanitized,
     const std::string& normalized,
@@ -247,6 +251,15 @@ bool ClientState::ensureUdpRuntimeLocked(const std::string& serverAddress) {
 
     if (!isLoopbackLikeHost(host)) {
         transport_ = "real-udp";
+        timeval timeout {};
+        timeout.tv_sec = 1;
+        timeout.tv_usec = 0;
+        if (::setsockopt(udpSocketFd_, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout)) != 0 ||
+            ::setsockopt(udpSocketFd_, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout)) != 0) {
+            diagnostics_ = std::string("UDP timeout configuration failed: ") + std::strerror(errno);
+            closeUdpRuntimeLocked();
+            return false;
+        }
     } else {
         transport_ = "RakNet-compatible UDP";
     }
@@ -293,6 +306,15 @@ int ClientState::sendUdpProbeLocked(const std::vector<unsigned char>& payload) {
         ++packetsSent_;
         return 1;
     }
+
+    if (written < 0) {
+        const int errorCode = errno;
+        if (isSocketTimeoutError(errorCode) && !isLoopbackLikeHost(serverAddress_)) {
+            state_ = "error";
+            diagnostics_ = "Remote UDP send timed out to " + serverAddress_;
+            recordEventLocked("Remote UDP send timed out to " + serverAddress_);
+        }
+    }
     return 0;
 }
 
@@ -312,7 +334,16 @@ int ClientState::receiveUdpProbeLocked() {
         reinterpret_cast<sockaddr*>(&sourceAddress),
         &sourceLength
     );
-    if (received <= 0) {
+    if (received < 0) {
+        const int errorCode = errno;
+        if (isSocketTimeoutError(errorCode) && !isLoopbackLikeHost(serverAddress_)) {
+            state_ = "error";
+            diagnostics_ = "Remote UDP receive timed out for " + serverAddress_ + "; server may be disconnected";
+            recordEventLocked("Remote UDP receive timed out; server may be disconnected");
+        }
+        return 0;
+    }
+    if (received == 0) {
         return 0;
     }
 

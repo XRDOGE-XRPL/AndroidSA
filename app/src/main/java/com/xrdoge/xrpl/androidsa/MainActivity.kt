@@ -151,13 +151,14 @@ private fun AndroidSAApp() {
     }
 
     fun applyLocalError(message: String) {
+        val baseSnapshot = snapshot
         applySnapshot(
-            snapshot.copy(
-                overview = snapshot.overview.copy(
+            baseSnapshot.copy(
+                overview = baseSnapshot.overview.copy(
                     connectionState = "error",
                     diagnostics = message,
                 ),
-                recentEvents = (listOf(message) + snapshot.recentEvents).take(MaxUiRecentEvents),
+                recentEvents = (listOf(message) + baseSnapshot.recentEvents).take(MaxUiRecentEvents),
             ),
             syncInputs = false,
         )
@@ -199,14 +200,12 @@ private fun AndroidSAApp() {
                 val result = withContext(Dispatchers.IO) {
                     NativeBridge.refresh(sanitizedCommand)
                 }
-                applySnapshot(
-                    result.getOrElse {
-                        applyLocalError(it.message ?: "Native command failed")
-                        return@getOrElse snapshot
-                    },
-                    syncInputs = true,
-                )
-                trackServerMetricFromSnapshot(snapshot)
+                val refreshedSnapshot = result.getOrElse {
+                    applyLocalError(it.message ?: "Native command failed")
+                    return@getOrElse snapshot
+                }
+                applySnapshot(refreshedSnapshot, syncInputs = true)
+                trackServerMetricFromSnapshot(refreshedSnapshot)
             } catch (error: Exception) {
                 if (error is CancellationException) {
                     throw error
@@ -245,12 +244,11 @@ private fun AndroidSAApp() {
     LaunchedEffect(Unit) {
         try {
             isLoading = true
-            applySnapshot(
-                withContext(Dispatchers.IO) {
-                    loadSnapshotSafely { NativeBridge.snapshot() }
-                },
-            )
-            trackServerMetricFromSnapshot(snapshot)
+            val initialSnapshot = withContext(Dispatchers.IO) {
+                loadSnapshotSafely { NativeBridge.snapshot() }
+            }
+            applySnapshot(initialSnapshot)
+            trackServerMetricFromSnapshot(initialSnapshot)
         } finally {
             isLoading = false
         }
@@ -266,13 +264,11 @@ private fun AndroidSAApp() {
             if (isBusy) {
                 continue
             }
-            applySnapshot(
-                withContext(Dispatchers.IO) {
-                    loadSnapshotSafely { NativeBridge.snapshot() }
-                },
-                syncInputs = false,
-            )
-            trackServerMetricFromSnapshot(snapshot)
+            val autoRefreshSnapshot = withContext(Dispatchers.IO) {
+                loadSnapshotSafely { NativeBridge.snapshot() }
+            }
+            applySnapshot(autoRefreshSnapshot, syncInputs = false)
+            trackServerMetricFromSnapshot(autoRefreshSnapshot)
         }
     }
 

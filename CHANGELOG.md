@@ -13,6 +13,7 @@ Alle relevanten Änderungen dieses Projekts werden in dieser Datei dokumentiert.
 - Paket-/RPC-Erkennung für RakNet- und Open:MP/SA:MP-Wrapper-Events
 - native Host-Tests über CMake/CTest mit `client_state_test`
 - lokale Google-Maven-Proxy- und Warmup-Strategie für blockierte Build-Umgebungen
+- finalen GitHub-Actions-Workflow mit native Host-Tests, JVM-Unit-Tests, Emulator-UI-Tests und Assemblierung in definierter Reihenfolge
 - Android instrumentierter UI-Testcoverage für Server-Browser-Flow, Busy/Mutex-State und Runtime-Stats
 
 ### Changed
