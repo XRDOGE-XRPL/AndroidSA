@@ -151,6 +151,8 @@ object NativeBridge {
     @Volatile
     private var libraryLoaded = false
 
+    private val nativeCallLock = Any()
+
     private external fun nativeGetClientSummary(): String
     private external fun nativeGetRecentEvents(): String
     private external fun nativeDispatchCommand(command: String): Boolean
@@ -163,26 +165,30 @@ object NativeBridge {
         }
     }
 
-    fun snapshot(): Result<NativeClientSnapshot> = runCatching {
-        ensureLibraryLoaded()
-        normalizeNativeSnapshot(
-            NativeClientSnapshot(
-                overview = parseNativeOverview(nativeGetClientSummary()),
-                recentEvents = parseNativeEventLog(nativeGetRecentEvents()),
-            ),
-        )
+    fun snapshot(): Result<NativeClientSnapshot> = synchronized(nativeCallLock) {
+        runCatching {
+            ensureLibraryLoaded()
+            normalizeNativeSnapshot(
+                NativeClientSnapshot(
+                    overview = parseNativeOverview(nativeGetClientSummary()),
+                    recentEvents = parseNativeEventLog(nativeGetRecentEvents()),
+                ),
+            )
+        }
     }
 
     fun overview(): Result<NativeOverview> = snapshot().map { it.overview }
 
-    fun refresh(command: String = "ping"): Result<NativeClientSnapshot> = runCatching {
-        ensureLibraryLoaded()
-        val sanitizedCommand = requireValidNativeCommand(command)
-        if (nativeDispatchCommand(sanitizedCommand)) {
-            snapshot().getOrThrow()
-        } else {
-            val diagnosticMessage = snapshot().getOrNull()?.overview?.diagnostics
-            error(diagnosticMessage?.ifBlank { "Native command was rejected" } ?: "Native command was rejected")
+    fun refresh(command: String = "ping"): Result<NativeClientSnapshot> = synchronized(nativeCallLock) {
+        runCatching {
+            ensureLibraryLoaded()
+            val sanitizedCommand = requireValidNativeCommand(command)
+            if (nativeDispatchCommand(sanitizedCommand)) {
+                snapshot().getOrThrow()
+            } else {
+                val diagnosticMessage = snapshot().getOrNull()?.overview?.diagnostics
+                error(diagnosticMessage?.ifBlank { "Native command was rejected" } ?: "Native command was rejected")
+            }
         }
     }
 }
