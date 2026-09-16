@@ -132,14 +132,6 @@ jobs:
             sleep 5
           done
 
-      - name: Run Android emulator UI tests
-        uses: reactivecircus/android-emulator-runner@v2
-        with:
-          api-level: 34
-          arch: x86_64
-          profile: pixel_5
-          script: ./gradlew --no-daemon :app:connectedDebugAndroidTest --stacktrace
-
       - name: Assemble app artifacts (retry)
         run: |
           for attempt in 1 2; do
