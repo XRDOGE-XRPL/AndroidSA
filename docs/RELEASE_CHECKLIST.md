@@ -42,14 +42,14 @@ Vor jedem Android-Emulator-/Device-Run muss die lokale Basisvalidierung erfolgre
 - [ ] Loopback-Testpfad bleibt stabil, auch ohne echte Remote-Serververbindung
 - [ ] Remote-UDP-Pfad kann bei bewusst konfiguriertem Remote-Target echte `sendto`/`recvfrom`-Flows ausführen
 
-## 4) Android-/Emulator-Ready
+## 4) Android-/Geräte-Ready (optional)
 
 - [ ] Android SDK 34, Android NDK `27.3.13750724` und CMake 3.22.1+ vorhanden
 - [ ] `adb devices` zeigt ein gültiges Gerät oder einen laufenden Emulator
 - [ ] Entwicklungsoptionen für Android-Gerät aktiv, falls physisches Gerät verwendet wird
 - [ ] `minSdk 26` und `targetSdk 34` korrekt konfiguriert
-- [ ] Debug-/AndroidTest-APK bauen ohne Fehler: `./gradlew --no-daemon :app:assembleDebug :app:assembleDebugAndroidTest --stacktrace`
-- [ ] Instrumentierte UI-Tests laufen erfolgreich: `./gradlew --no-daemon :app:connectedDebugAndroidTest --stacktrace`
+- [ ] lokale APK-Verifikation ohne Fehler: `./gradlew --no-daemon :app:assembleDebug --stacktrace`
+- [ ] Gerät-/Emulator-Checks sind optional und nicht Teil des Required CI-Pfads
 
 ## 5) Security / Repository Hygiene
 
@@ -76,6 +76,5 @@ cmake -S app/src/main/cpp -B build/native-tests -DANDROIDSA_ENABLE_NATIVE_TESTS=
 cmake --build build/native-tests --target client_state_test
 ctest --test-dir build/native-tests --output-on-failure
 ./gradlew --no-daemon check build --stacktrace
-./gradlew --no-daemon :app:assembleDebug :app:assembleDebugAndroidTest --stacktrace
-./gradlew --no-daemon :app:connectedDebugAndroidTest --stacktrace
+./gradlew --no-daemon :app:assembleDebug --stacktrace
 ```

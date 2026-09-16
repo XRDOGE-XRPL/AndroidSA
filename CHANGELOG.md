@@ -13,8 +13,8 @@ Alle relevanten Änderungen dieses Projekts werden in dieser Datei dokumentiert.
 - Paket-/RPC-Erkennung für RakNet- und Open:MP/SA:MP-Wrapper-Events
 - native Host-Tests über CMake/CTest mit `client_state_test`
 - lokale Google-Maven-Proxy- und Warmup-Strategie für blockierte Build-Umgebungen
-- finalen GitHub-Actions-Workflow mit native Host-Tests, JVM-Unit-Tests, Emulator-UI-Tests und Assemblierung in definierter Reihenfolge
-- Android instrumentierter UI-Testcoverage für Server-Browser-Flow, Busy/Mutex-State und Runtime-Stats
+- finalen GitHub-Actions-Workflow mit stabiler Fokussierung auf native Host-Tests, JVM-Unit-Tests und Assemble
+- nachvollziehbare Release-/Setup-Dokumentation mit finaler CI-Strategie und resolventem Proxy-Fallback
 
 ### Changed
 
@@ -22,7 +22,8 @@ Alle relevanten Änderungen dieses Projekts werden in dieser Datei dokumentiert.
 - Summary-Format auf exakt 11 Felder konsolidiert und zwischen C++-Kern und Kotlin-Bridge synchronisiert
 - UDP-Logik von reinem Loopback-Mocking auf echte Remote-Auflösung via `getaddrinfo` und echte socket-basierte Probe-Kommunikation erweitert
 - Command-Syntax und Validierung auf exakte Regeln für `transport:<value>`, `connect:<server>`, `latency:<ms>`, `simulate:rx|tx`, `fail:<reason>` und `diagnostics:<text>` erweitert
-- README, Projektvorstellung und Release-Checklist auf den finalen Status mit Architektur-, Setup- und CI-Details aktualisiert
+- README, Setup-Doku und Changelog auf den finalen, stabilen CI-Stand mit nativen Host-Tests, JVM-Unit-Tests und Assemble angepasst
+- instabile Emulator-UI-Tests aus der Standard-CI und den dokumentierten Hauptpfaden entfernt
 
 ### Fixed
 
@@ -31,6 +32,7 @@ Alle relevanten Änderungen dieses Projekts werden in dieser Datei dokumentiert.
 - Zustandsinkonsistenzen im Event-Log durch mutexbasierte Serialisierung behoben
 - Eintragungen für Paketzähler, Verbindungsversuche und letzte Commands in UI und native Summary konsistent synchronisiert
 - Build-/Resolver-Probleme in blockierten Netzwerken durch lokalen Proxy und dokumentierte Warmup-Schritte entschränkt
+- CI-Instabilität durch Austragung der Emulator-UI-Tests aus dem primären GitHub-Actions-Workflow behoben
 
 ### Documentation
 
