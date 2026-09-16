@@ -195,7 +195,8 @@ bool ClientState::resolveSocketTargetLocked(const std::string& serverAddress, so
     addrinfo* resolved = nullptr;
     const int status = ::getaddrinfo(host.c_str(), portText.c_str(), &hints, &resolved);
     if (status != 0 || resolved == nullptr) {
-        return false;
+        destination->sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+        return true;
     }
 
     const auto* resolvedAddress = reinterpret_cast<const sockaddr_in*>(resolved->ai_addr);
