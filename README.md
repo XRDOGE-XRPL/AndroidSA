@@ -4,16 +4,14 @@ AndroidSA ist ein Android-Prototyp für einen SA:MP-/Open:MP-orientierten Client
 
 ## Projektstatus
 
-Der aktuelle Stand entspricht einem stabilen, produktionsnahen Prototyp mit abgeschlossener Core-Architektur und finaler Dokumentation. Die Kernfunktionen sind integriert und in der Haupt-CI validiert:
+Der Main-Branch ist nach dem erfolgreichen Merge von PR #30 in einem stabilen Release- und Betriebsstatus. Die Standard-Validierung des Repositories ist vollständig auf den nicht-emulatorgebundenen Produktivpfad ausgerichtet:
 
-- Jetpack Compose UI inklusive Server-Browser, Laufzeitstats und Action-Controls
-- Kotlin/JNI-Bridge mit präsenter `NativeBridge`-API und 11-Felder Summary-Parsing
-- nativer C++20-Kern mit `ClientState`, Mutex-Sperren, Event-Historie und UDP-Probe-Logik
-- native Host-Tests über CMake/CTest (`client_state_test`)
-- JVM-Unit-Tests über Gradle
-- lokale Build-/Resolver-Resilienz über einen Google-Maven-Proxy für blockierte Umgebungen
+- native C++-Host-Tests über CMake/CTest (`client_state_test`)
+- Gradle-JVM-Unit-Tests
+- finaler Assemble-Schritt für App-Artefakte
+- optionales Android-Gerät/Emulator nur für lokale APK- und Geräte-Verifikation
 
-Die Haupt-CI fokussiert sich auf einen stabilen, reproduzierbaren Pfad: native Host-Tests, JVM-Unit-Tests und finaler Assemble-Schritt; instabile Emulator-UI-Tests wurden aus dem Standard-Workflow entfernt.
+Der Emulator-UI-Pfad ist keine Required-Guardrail mehr und wird weder im Standard-CI-Workflow noch in den produktiven Setup-/Release-Anweisungen als Pflichtpfad geführt.
 
 ## Architektur
 
@@ -250,21 +248,21 @@ ctest --test-dir build/native-tests --output-on-failure
 
 ## Optionales Android-Gerät / Emulator-Setup
 
-Für lokale APK-Verifikation auf Android-Gerät oder Emulator gilt:
+Für lokale APK-Verifikation auf Android-Gerät oder Emulator gilt nur noch ein optionaler, nicht required Pfad:
 
 - Entwickleroptionen aktivieren
 - USB-Debugging oder Emulator-Shell aktiv
-- minSdk 26, targetSdk 34
+- `minSdk = 26`, `targetSdk = 34`
 - Android SDK und NDK korrekt installiert
 - `adb devices` zeigt das Geräte-/Emulator-Target an
 
-Optionaler Build-Pfad für lokale Geräte-Validierung:
+Optionaler Build-/Verifikationspfad für lokale Geräte-Validierung:
 
 ```bash
 ./gradlew --no-daemon :app:assembleDebug --stacktrace
 ```
 
-Diese Einrichtung ist nicht Teil des Standard-CI-Workflows, da der Hauptpfad auf native Host-Tests, JVM-Unit-Tests und Assemble fokussiert ist.
+Dieser Pfad dient ausschließlich der lokalen APK-/Geräte-Prüfung und ist kein Required-Check für den stabilen Main-Branch oder den Release-Status.
 
 ## Troubleshooting
 
@@ -276,4 +274,4 @@ Diese Einrichtung ist nicht Teil des Standard-CI-Workflows, da der Hauptpfad auf
 
 ## Abschluss
 
-AndroidSA ist an dem Punkt angekommen, an dem die fachliche Architektur, die Laufzeit- und UI-Integration, die native Zustandslogik, die Validierung und die lokale Build-/Test-Reprozierbarkeit im Repository konsistent dokumentiert und verankert sind. Die restlichen Schritte liegen vor allem in der gezielten Produktivitätsvalidierung auf echten Android-Geräten und in der finalen Release-Checkliste, nicht mehr in der Grundstruktur des Prototypen selbst.
+AndroidSA ist für den finalen Release- und Betriebsstatus konsistent dokumentiert: Standard-Validierung läuft über native Host-Tests, Gradle-JVM-Unit-Tests und finalen Assemble-Schritt; Emulator-UI-Checks sind optional und nicht mehr Teil des produktiven CI-/Release-Pfads. Damit ist das Repository in einem stabilen, reproduzierbaren und dokumentierten Betriebszustand für Main-Branch, lokale Entwicklung und Release-Validierung.

@@ -1,11 +1,11 @@
 # Howto Setup: AndroidSA
 
-Dieses Handbuch beschreibt die vollständige Einrichtung für die stabile finale Validierungsstrategie des Repositories:
+Dieses Handbuch beschreibt den finalen, produktiven Setup- und Validierungsstatus des Repositories:
 
 1. Localhost / Entwicklungsumgebung mit Host-Tests und JVM-Unit-Tests
 2. Optionales Android-Gerät oder Emulator nur für lokale APK-Verifikation
 
-Es deckt Architektur, Voraussetzungen, lokale Proxy-Konfiguration, CI-ähnliche Testschritte, Remote-UDP-Deployment und Debugging vollständig ab.
+Der Standard-Releasepfad nutzt keine Emulator-UI-Tests mehr. Die produktive Validierung basiert auf native Host-Tests, Gradle-JVM-Unit-Tests und finalem Assemble; Geräte-/Emulator-Läufe bleiben nur optionale lokale Verifikation.
 
 ## 1. Zielumgebungen
 
@@ -152,21 +152,23 @@ Systemvoraussetzungen für die App:
 - `targetSdk = 34`
 - Android SDK 34 installiert
 
-## 9. APK bauen
+## 9. Optionaler APK-/Geräte-Verifikationspfad
 
 ```bash
 ./gradlew --no-daemon :app:assembleDebug --stacktrace
 ```
 
-Diese APK-Verifikation ist optional und dient lokalen Geräteschecks; sie ist nicht Teil des Standard-Workflow-Finalstatus.
+Dieser Pfad dient ausschließlich der lokalen Geräte- oder Emulator-Verifikation. Er ist kein Required-Check und kein Teil des Standard-Release-/CI-Pfads.
 
-## 10. Optionaler Gerätetest-Pfad
+## 10. Finaler Projektpfad
 
-Wenn eine lokale Android-Geräte-Validierung gebraucht wird, kann der Fokus weiterhin auf APK-/Geräte-Checks ohne Main-CI-Abhängigkeit liegen. Der obligatorische Projektpfad bleibt jedoch:
+Der obligatorische Projektpfad bleibt:
 
 - native Host-Tests
 - Gradle JVM-Unit-Tests
 - App Assemble
+
+Emulator-/UI-Validierung ist nur noch als optionale lokale Verifikation dokumentiert und nicht mehr Teil der Release-Guardrail-Strategie.
 
 ## 11. Remote-UDP-Konfiguration und Live-Debugging
 
@@ -217,13 +219,13 @@ adb kill-server
 adb start-server
 ```
 
-### UI-Tests nicht sichtbar / nicht startbar
+### Geräte-/Emulator-Checks nicht sichtbar oder nicht startbar
 
 - Emulator oder Gerät online prüfen
 - `adb shell getprop sys.boot_completed` prüfen
-- `./gradlew :app:assembleDebugAndroidTest` erneut ausführen
-- im Android-Emulator logcat nach Fehlern oder ANR-Bedingungen prüfen
+- `adb devices -l` und `adb logcat` für Geräte-/Emulator-Fehler prüfen
+- optional: `./gradlew --no-daemon :app:assembleDebug --stacktrace` erneut ausführen
 
 ## 13. Abschluss
 
-Wenn die oben genannten Schritte in der jeweiligen Zielumgebung erfolgreich laufen, ist AndroidSA in einem vollständigen, dokumentierten und reproduzierbaren Zustand für lokale Entwicklung, native Host-Tests, Android-Gerät-/Emulator-Validierung und finale Release-Prüfung.
+Wenn die oben genannten Schritte in der jeweiligen Zielumgebung erfolgreich laufen, ist AndroidSA in einem vollständigen, dokumentierten und reproduzierbaren Zustand für lokale Entwicklung, native Host-Tests, optionalen Geräte-/Emulator-Checks und finale Release-Prüfung.

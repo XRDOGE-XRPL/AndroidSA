@@ -41,6 +41,29 @@ Alle relevanten Änderungen dieses Projekts werden in dieser Datei dokumentiert.
 - klare Erläuterung von Loopback-Probing vs. real-udp / remote-udp, Mutex-Sicherheit und Event-Historie
 - finale Release-Checkliste für lokale Validierung vor Android-/Emulator-CI
 
+## [Final Release / Main Branch Sync]
+
+### Added
+
+- finalen Release-Status des Main-Branches nach PR #30 dokumentiert
+- klaren Produktivpfad ohne Emulator-UI-Abhängigkeiten im Standard-Workflow etabliert
+- finalen Setup-/Release-Status für lokale Host-Tests, JVM-Unit-Tests und App-Assembly konsolidiert
+
+### Changed
+
+- README, Setup-Doku und Changelog auf den finalen, produktiven Main-Branch-Stand synchronisiert
+- Standard-Validierung auf native Host-Tests, Gradle-JVM-Unit-Tests und Assemble begrenzt
+- optionaler Geräte-/Emulator-Pfad als lokale Verifikation, nicht als Required CI-Check, dokumentiert
+
+### Fixed
+
+- veraltete Emulator-UI-Referenzen aus den primären Projekt-Dokumenten entfernt
+- temporäre/fehlerhafte Log-Artefakte und veraltete Referenzstellen aus der finalen Release-Doku bereinigt
+
+### Documentation
+
+- finale Release- und Betriebsbereitschaft für Main-Branch, lokale Entwicklung und CI als konsistente, langfristige Grundlage bestätigt
+
 ## [Unreleased]
 
 ### Added
