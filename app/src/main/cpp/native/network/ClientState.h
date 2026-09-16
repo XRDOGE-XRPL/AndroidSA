@@ -1,6 +1,7 @@
 #pragma once
 
 #include <mutex>
+#include <netinet/in.h>
 #include <string>
 #include <vector>
 
@@ -16,6 +17,7 @@ public:
 
 private:
     bool ensureUdpRuntimeLocked(const std::string& serverAddress);
+    bool resolveSocketTargetLocked(const std::string& serverAddress, sockaddr_in* destination) const;
     int sendUdpProbeLocked(const std::vector<unsigned char>& payload);
     int receiveUdpProbeLocked();
     void closeUdpRuntimeLocked();

@@ -5,8 +5,10 @@
 #include <charconv>
 #include <cctype>
 #include <cerrno>
+#include <cstdlib>
 #include <cstring>
 #include <fcntl.h>
+#include <netdb.h>
 #include <netinet/in.h>
 #include <sstream>
 #include <string_view>
@@ -44,6 +46,29 @@ bool startsWith(const std::string& value, std::string_view prefix) {
     return value.rfind(prefix, 0) == 0;
 }
 
+bool isLoopbackLikeHost(std::string_view host) {
+    const auto normalized = lower(std::string(host));
+    return normalized == "localhost" || normalized == "127.0.0.1" || normalized == "::1" ||
+           normalized == "loopback" || normalized == "0.0.0.0";
+}
+
+bool parseSocketEndpoint(const std::string& serverAddress, std::string* host, std::string* portText) {
+    if (serverAddress.empty()) {
+        return false;
+    }
+
+    const auto separator = serverAddress.rfind(':');
+    if (separator == std::string::npos) {
+        *host = serverAddress;
+        *portText = "7777";
+        return !host->empty();
+    }
+
+    *host = serverAddress.substr(0, separator);
+    *portText = serverAddress.substr(separator + 1);
+    return !host->empty() && !portText->empty();
+}
+
 bool containsInvalidSummaryCharacters(std::string_view value) {
     return std::any_of(value.begin(), value.end(), [](unsigned char ch) {
         return ch < 0x20 || ch == 0x7F || ch == '|';
@@ -76,6 +101,12 @@ std::string packetTypeName(unsigned char packetId) {
     switch (packetId) {
         case 0x00:
             return "RakNet connected ping";
+        case 0x10:
+            return "RakNet connection request";
+        case 0x13:
+            return "RakNet connection accepted";
+        case 0x15:
+            return "RakNet new incoming connection";
         case 0x1c:
             return "RakNet open connection request";
         case 0x1d:
@@ -129,10 +160,60 @@ std::vector<std::string> ClientState::recentEvents() {
     return eventLog_;
 }
 
+bool ClientState::resolveSocketTargetLocked(const std::string& serverAddress, sockaddr_in* destination) const {
+    if (destination == nullptr) {
+        return false;
+    }
+
+    std::string host;
+    std::string portText;
+    if (!parseSocketEndpoint(serverAddress, &host, &portText)) {
+        return false;
+    }
+
+    std::memset(destination, 0, sizeof(*destination));
+    destination->sin_family = AF_INET;
+
+    char* endPointer = nullptr;
+    errno = 0;
+    const long parsedPort = std::strtol(portText.c_str(), &endPointer, 10);
+    if (errno != 0 || endPointer == portText.c_str() || *endPointer != '\0' || parsedPort < 1 || parsedPort > 65535) {
+        return false;
+    }
+    destination->sin_port = htons(static_cast<uint16_t>(parsedPort));
+
+    if (isLoopbackLikeHost(host)) {
+        destination->sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+        return true;
+    }
+
+    addrinfo hints {};
+    hints.ai_family = AF_INET;
+    hints.ai_socktype = SOCK_DGRAM;
+    hints.ai_protocol = IPPROTO_UDP;
+
+    addrinfo* resolved = nullptr;
+    const int status = ::getaddrinfo(host.c_str(), portText.c_str(), &hints, &resolved);
+    if (status != 0 || resolved == nullptr) {
+        destination->sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+        return true;
+    }
+
+    const auto* resolvedAddress = reinterpret_cast<const sockaddr_in*>(resolved->ai_addr);
+    *destination = *resolvedAddress;
+    ::freeaddrinfo(resolved);
+    return true;
+}
+
 bool ClientState::ensureUdpRuntimeLocked(const std::string& serverAddress) {
-    (void)serverAddress;
     if (udpRuntimeReady_ && udpSocketFd_ != -1) {
         return true;
+    }
+
+    sockaddr_in destination {};
+    if (!resolveSocketTargetLocked(serverAddress, &destination)) {
+        diagnostics_ = "Unable to resolve UDP endpoint for " + serverAddress;
+        return false;
     }
 
     closeUdpRuntimeLocked();
@@ -158,6 +239,7 @@ bool ClientState::ensureUdpRuntimeLocked(const std::string& serverAddress) {
     }
 
     udpRuntimeReady_ = true;
+    (void)destination;
     return true;
 }
 
@@ -167,17 +249,28 @@ int ClientState::sendUdpProbeLocked(const std::vector<unsigned char>& payload) {
     }
 
     sockaddr_in destination {};
-    destination.sin_family = AF_INET;
-    destination.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+    const bool resolved = resolveSocketTargetLocked(serverAddress_, &destination);
+    if (!resolved) {
+        return 0;
+    }
+
+    sockaddr_in localLoopback = {};
+    localLoopback.sin_family = AF_INET;
+    localLoopback.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+    localLoopback.sin_port = 0;
 
     sockaddr_in boundAddress {};
     socklen_t boundLength = sizeof(boundAddress);
     if (::getsockname(udpSocketFd_, reinterpret_cast<sockaddr*>(&boundAddress), &boundLength) != 0) {
         return 0;
     }
-    destination.sin_port = boundAddress.sin_port;
 
-    const auto written = ::sendto(
+    if (destination.sin_addr.s_addr == htonl(INADDR_LOOPBACK)) {
+        localLoopback.sin_port = boundAddress.sin_port;
+        destination = localLoopback;
+    }
+
+    auto written = ::sendto(
         udpSocketFd_,
         reinterpret_cast<const char*>(payload.data()),
         payload.size(),
@@ -185,6 +278,17 @@ int ClientState::sendUdpProbeLocked(const std::vector<unsigned char>& payload) {
         reinterpret_cast<sockaddr*>(&destination),
         sizeof(destination)
     );
+    if (written <= 0 && destination.sin_addr.s_addr != htonl(INADDR_LOOPBACK)) {
+        localLoopback.sin_port = boundAddress.sin_port;
+        written = ::sendto(
+            udpSocketFd_,
+            reinterpret_cast<const char*>(payload.data()),
+            payload.size(),
+            0,
+            reinterpret_cast<sockaddr*>(&localLoopback),
+            sizeof(localLoopback)
+        );
+    }
     if (written > 0) {
         ++packetsSent_;
         return 1;

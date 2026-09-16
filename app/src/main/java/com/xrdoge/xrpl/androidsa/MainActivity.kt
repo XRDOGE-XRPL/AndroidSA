@@ -2,6 +2,7 @@ package com.xrdoge.xrpl.androidsa
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import java.util.Locale
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -121,6 +122,11 @@ private fun AndroidSAApp() {
     val commandMutex = remember { Mutex() }
     val scope = rememberCoroutineScope()
     val overview = snapshot.overview
+    val txRxRatio = when {
+        overview.packetsSent == 0 && overview.packetsReceived == 0 -> "0.00"
+        overview.packetsReceived == 0 -> "∞"
+        else -> String.format(Locale.US, "%.2f", overview.packetsSent.toDouble() / overview.packetsReceived.toDouble())
+    }
     val isBusy = isLoading || commandJob?.isActive == true || commandInFlight != null
     val commandError = remember(commandText) {
         runCatching {
@@ -299,6 +305,7 @@ private fun AndroidSAApp() {
                 OverviewValueRow(title = "Latency", value = "${overview.latencyMs} ms")
                 OverviewValueRow(title = "Packets sent", value = overview.packetsSent.toString())
                 OverviewValueRow(title = "Packets received", value = overview.packetsReceived.toString())
+                OverviewValueRow(title = "TX/RX ratio", value = txRxRatio)
                 OverviewValueRow(title = "Reconnect attempts", value = overview.connectionAttempts.toString())
                 OverviewValueRow(title = "Last command", value = overview.lastCommand)
                 OverviewValueRow(title = "Active operation", value = commandInFlight ?: "idle")
