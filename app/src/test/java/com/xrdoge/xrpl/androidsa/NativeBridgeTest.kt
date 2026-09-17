@@ -71,6 +71,23 @@ class NativeBridgeTest {
     }
 
     @Test
+    fun parseNativeOverviewPreservesDiagnosticsWithEmbeddedPipesInFullSummary() {
+        val overview = parseNativeOverview("AndroidSA|udp|ready|diag|with|pipe|server.org:7777|Ryder|42|7|9|3|status")
+
+        assertEquals("AndroidSA", overview.clientName)
+        assertEquals("udp", overview.transport)
+        assertEquals("ready", overview.connectionState)
+        assertEquals("diag|with|pipe", overview.diagnostics)
+        assertEquals("server.org:7777", overview.serverAddress)
+        assertEquals("Ryder", overview.playerName)
+        assertEquals(42, overview.latencyMs)
+        assertEquals(7, overview.packetsSent)
+        assertEquals(9, overview.packetsReceived)
+        assertEquals(3, overview.connectionAttempts)
+        assertEquals("status", overview.lastCommand)
+    }
+
+    @Test
     fun parseNativeOverviewFallsBackForInvalidNumericFields() {
         val overview = parseNativeOverview("AndroidSA|udp|ready|diag|server|Guest|oops|nope|nah|bad|status")
 
@@ -136,6 +153,20 @@ class NativeBridgeTest {
     }
 
     @Test
+    fun requireValidNativeCommandAcceptsStatusAndResetStyleCommands() {
+        assertEquals("status", requireValidNativeCommand("status"))
+        assertEquals("reset", requireValidNativeCommand("reset"))
+        assertEquals("disconnect", requireValidNativeCommand("disconnect"))
+    }
+
+    @Test
+    fun requireValidNativeCommandRejectsWhitespaceBeforeSeparator() {
+        assertThrows(IllegalArgumentException::class.java) {
+            requireValidNativeCommand("transport :udp")
+        }
+    }
+
+    @Test
     fun requireValidNativeCommandRejectsBlankInput() {
         assertThrows(IllegalArgumentException::class.java) {
             requireValidNativeCommand("   ")
@@ -168,6 +199,7 @@ class NativeBridgeTest {
     @Test
     fun requireValidNativeCommandAcceptsTransportCommand() {
         assertEquals("transport:udp", requireValidNativeCommand("transport:udp"))
+        assertEquals("transport:udp", requireValidNativeCommand("Transport:udp"))
     }
 
     @Test

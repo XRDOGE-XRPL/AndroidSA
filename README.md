@@ -235,6 +235,18 @@ ANDROIDSA_GOOGLE_MAVEN_URL=http://127.0.0.1:38473/ ./gradlew --no-daemon :app:te
 ./gradlew --no-daemon check build --stacktrace
 ```
 
+Alternativ ist im Root-Projekt ein dedizierter Release-Validierungs-Task verfügbar:
+
+```bash
+./gradlew --no-daemon releaseValidation --stacktrace
+```
+
+Dieser Task kapselt die produktive CI-Reihenfolge mit nativen Host-Tests, JVM-Unit-Tests und finalem Assemble-Pfad. Für die reine Native-Prüfung ist ebenfalls ein Root-Task verfügbar:
+
+```bash
+./gradlew --no-daemon nativeHostCheck --stacktrace
+```
+
 Oder in der finalen, stabilen CI-ähnlichen Reihenfolge:
 
 ```bash
@@ -244,6 +256,12 @@ cmake --build build/native-tests --target client_state_test
 ctest --test-dir build/native-tests --output-on-failure
 ./gradlew --no-daemon :app:testDebugUnitTest --stacktrace
 ./gradlew --no-daemon :app:assemble --stacktrace
+```
+
+Für eine einmalige lokale Ausführung der gleichen Sequenz steht auch ein Wrapper-Skript bereit. Es prüft automatisch, ob Google Maven erreichbar ist, startet bei Bedarf den lokalen Proxy und setzt `ANDROIDSA_GOOGLE_MAVEN_URL` für den Gradle-Lauf:
+
+```bash
+bash tools/run_release_validation.sh
 ```
 
 ## Optionales Android-Gerät / Emulator-Setup
