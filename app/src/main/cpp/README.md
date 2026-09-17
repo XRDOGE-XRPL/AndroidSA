@@ -139,6 +139,16 @@ ctest --test-dir build/native-tests --output-on-failure
 - Änderungen an UDP-Probing oder Summary-Feldern mit Host-Test und JVM-Tests absichern
 - Event-Texte bewusst wählen, da sie direkt in der Android-Oberfläche erscheinen
 - Fehlerdiagnosen so formulieren, dass die Bridge sie konsistent als Fehlerzustand interpretieren kann
+- keine Gameplay-Fiktion in native Logs oder Summary-Daten einbringen
+
+## Praktische Betriebsregeln
+
+Für den nativen Stack bleiben diese Regeln verbindlich:
+
+- Diagnose und Protokollanalyse sind Gegenstand des Projekts
+- echte Spiel-Gameplay-Integration ist nicht Bestandteil
+- Paketsignale als technische Hinweise behandeln, nicht als Gameplay-Metadaten
+- Server- und Netzwerk-Status bleiben die primäre produktive Funktionalität
 
 ## Vollständiges Setup und Durchführung `run test`
 

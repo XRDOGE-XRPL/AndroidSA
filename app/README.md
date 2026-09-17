@@ -13,12 +13,14 @@ Das Modul ist bewusst keine GTA-SA-Mobile-Spielclient-Implementierung. Es ist ei
 - Serverprobe, Ping und Query-ähnliche Verbindungschecks
 - Paket-/RPC-/Wrapper-Analyse
 - Event-History, Laufzeit-Status und Diagnoseausgaben
+- per-server Probe- und Status-Tracking
 
 Es ist nicht vorgesehen für:
 
 - echtes Joinen in eine Laufzeitwelt mit Gameplay-Sync
 - RenderWare- oder Mobile-Game-Integration
 - Anbieten eines fertigen Open:MP-Android-Clients
+- die Behauptung, AndroidSA sei der „Open:MP Mobile Client“
 
 Aktuell beginnt der RakNet-/Open:MP-Teil mit klarer Paket- und Wrapper-Erkennung (z. B. `0x00`, `0x1c`, `0x1d`, `0x7d`) als diagnostische Server-Health-Schicht. Eine echte mobile Multiplayer-Variante braucht ein separates, legales Projekt auf Basis von GTA SA Mobile mit eigener MP-Schicht; AndroidSA bleibt in dieser Sicht die diagnostische und launcherartige Vorstufe.
 
@@ -70,6 +72,15 @@ Sobald der Connection State `connected` ist, werden Runtime-Metriken im Sekunden
 - Profile speichern zuletzt bekannte Latenz und den letzten bekannten State
 - Profile ohne `default-`-Präfix können wieder entfernt werden
 
+### Diagnostik- und Statusansicht
+
+Die App zeigt nicht nur „online/offline“, sondern eine kleine Diagnose-Diagnostik-Stack:
+
+- Probe-Status: idle, handshake, reply, payload, timeout
+- Paket-Metriken: sent/received/Zähler
+- letzter Command und letzte Native-Fehlerdiagnose
+- RakNet/Open:MP-Signal-Erkennung als technische Hinweise, nicht als gameplay-proof
+
 ## Native-Bridge-Verhalten
 
 Die Bridge stellt zwei zentrale Datenstrukturen bereit:
@@ -116,6 +127,7 @@ Diese Regeln werden im nativen Layer erneut abgesichert.
 - Änderungen an Summary-Feldern müssen mit dem nativen Format synchron bleiben
 - UI-Texte sollten zum tatsächlichen Laufzeitverhalten der nativen Commands passen
 - Race-Conditions besonders bei Busy-State, Auto-Refresh und manuellem Dispatch beachten
+- Dokumentationsänderungen sollten das reale Projekt- und Produktverständnis nicht verschieben
 
 ## Vollständiges Setup und Durchführung `run test`
 

@@ -9,6 +9,7 @@ AndroidSA ist bewusst keine fertige GTA-SA-Mobile-Gameplay-Integration und kein 
 - Serverliste, Ping, Query-/Probe-Status und Verbindungsdiagnostik
 - UDP-/Network-Analyse, Paketzähler, RPC-/Wrapper-Erkennung und Laufzeitlogs
 - Launcher-/Status-UI als echte Diagnose- und Betriebsoberfläche
+- dokumentierte Trennung zwischen Netzwerk-/RakNet-Signal-Erkennung und tatsächlicher Gameplay-Synchronisierung
 
 Nicht im Scope sind:
 
@@ -19,6 +20,19 @@ Nicht im Scope sind:
 
 Open:MP bleibt ein Server-/Launcher- und PC-Ökosystem; AndroidSA modelliert die diagnostische Server-/Netzwerk-Seite, nicht ein vollständiges Spiel-Client-Backend. Der RakNet-/Open:MP-Teil beginnt bewusst mit der Erkennung und Klassifizierung von Packetsignalen, nicht mit Gameplay-Synchronisierung.
 
+## Dokumentations-Map
+
+Das Repository enthält die zentralen Markdown-Dateien:
+
+- `README.md` – Projekt- und Scope-Dokumentation
+- `Projectvorstellungs.md` – technische Projektvorstellung und Produktlage
+- `HowtoSetup.md` – lokale Setup-/Build-/Test-Anleitung
+- `CHANGELOG.md` – Release- und Funktionsfortschritt
+- `ToDo.md` – offene Aufgaben und Prioritäten
+- `app/README.md` – Modul-Dokumentation für die Android-App
+- `app/src/main/cpp/README.md` – Native-Layer-Dokumentation
+- `docs/ANDROID_DEVICE_CI_READY_CHECKLIST.md` – optionaler Geräte-/Emulator-Check
+- `docs/RELEASE_CHECKLIST.md` – finale Release-Gate-Checkliste
 
 ## Projektstatus
 
@@ -76,6 +90,17 @@ Dateien:
 - `app/src/main/cpp/native/network/ClientStateTest.cpp`
 
 Der native Kern verwaltet den Laufzeitzustand, validiert Commands, erzeugt die Summary-Zeichenkette, verwaltet Paket- und Event-Zähler und führt UDP-Probes aus. Der Zustand wird unter `std::mutex` geschützt; Dispatches, Event-Log und Paketzähler laufen somit deterministisch und thread-sicher.
+
+## Paketsignale und Protokollanalyse
+
+AndroidSA arbeitet bewusst nur mit einer diagnostischen Signal- und Paketschicht. Die wichtigsten Marker sind:
+
+- `0x00` → RakNet connected ping
+- `0x1c` → RakNet open connection request
+- `0x1d` → RakNet open connection reply
+- `0x7d` → Open:MP/SA:MP RPC wrapper
+
+Diese Signale dienen als Diagnose- und Health-Feedback; sie sind kein Nachweis für ein spielbares Mobile-Client-Backend.
 
 ## Befehls- und Datenmodell
 
@@ -253,61 +278,6 @@ ANDROIDSA_GOOGLE_MAVEN_URL=http://127.0.0.1:38473/ ./gradlew --no-daemon :app:te
 ./gradlew --no-daemon check build --stacktrace
 ```
 
-Alternativ ist im Root-Projekt ein dedizierter Release-Validierungs-Task verfügbar:
-
-```bash
-./gradlew --no-daemon releaseValidation --stacktrace
-```
-
-Dieser Task kapselt die produktive CI-Reihenfolge mit nativen Host-Tests, JVM-Unit-Tests und finalem Assemble-Pfad. Für die reine Native-Prüfung ist ebenfalls ein Root-Task verfügbar:
-
-```bash
-./gradlew --no-daemon nativeHostCheck --stacktrace
-```
-
-Oder in der finalen, stabilen CI-ähnlichen Reihenfolge:
-
-```bash
-./gradlew --no-daemon help --stacktrace --refresh-dependencies
-cmake -S app/src/main/cpp -B build/native-tests -DANDROIDSA_ENABLE_NATIVE_TESTS=ON
-cmake --build build/native-tests --target client_state_test
-ctest --test-dir build/native-tests --output-on-failure
-./gradlew --no-daemon :app:testDebugUnitTest --stacktrace
-./gradlew --no-daemon :app:assemble --stacktrace
-```
-
-Für eine einmalige lokale Ausführung der gleichen Sequenz steht auch ein Wrapper-Skript bereit. Es prüft automatisch, ob Google Maven erreichbar ist, startet bei Bedarf den lokalen Proxy und setzt `ANDROIDSA_GOOGLE_MAVEN_URL` für den Gradle-Lauf:
-
-```bash
-bash tools/run_release_validation.sh
-```
-
-## Optionales Android-Gerät / Emulator-Setup
-
-Für lokale APK-Verifikation auf Android-Gerät oder Emulator gilt nur noch ein optionaler, nicht required Pfad:
-
-- Entwickleroptionen aktivieren
-- USB-Debugging oder Emulator-Shell aktiv
-- `minSdk = 26`, `targetSdk = 34`
-- Android SDK und NDK korrekt installiert
-- `adb devices` zeigt das Geräte-/Emulator-Target an
-
-Optionaler Build-/Verifikationspfad für lokale Geräte-Validierung:
-
-```bash
-./gradlew --no-daemon :app:assembleDebug --stacktrace
-```
-
-Dieser Pfad dient ausschließlich der lokalen APK-/Geräte-Prüfung und ist kein Required-Check für den stabilen Main-Branch oder den Release-Status.
-
-## Troubleshooting
-
-- Command wird abgelehnt: exakte Syntax prüfen (`transport:<value>`, `connect:<host:port>`, `latency:<ms>`, `simulate:rx|tx`)
-- Keine Native-Events sichtbar: Verbindung erneut aufbauen oder `simulate:rx`/`simulate:tx` auslösen
-- Gradle-Resolver blockiert: Proxy starten und `ANDROIDSA_GOOGLE_MAVEN_URL=http://127.0.0.1:38473/` setzen
-- Native Host-Tests fehlschlagen: `build/native-tests` bereinigen und CTest erneut laufen lassen
-- Verfügbare Android-Targets prüfen: `adb devices` und Android SDK/NDK-Versionen validieren
-
 ## Abschluss
 
-AndroidSA ist für den finalen Release- und Betriebsstatus konsistent dokumentiert: Standard-Validierung läuft über native Host-Tests, Gradle-JVM-Unit-Tests und finalen Assemble-Schritt; Emulator-UI-Checks sind optional und nicht mehr Teil des produktiven CI-/Release-Pfads. Damit ist das Repository in einem stabilen, reproduzierbaren und dokumentierten Betriebszustand für Main-Branch, lokale Entwicklung und Release-Validierung.
+AndroidSA ist ein dokumentiertes, begrenztes und technisch ehrlich modelliertes Projekt: ein Diagnose- und Server-Status-Tool, keine Fake-Gameplay-Client-Schicht und kein behaupteter Open:MP-Android-Slot. Die richtige technische Positionierung ist: Netzwerk-/Server-Analyse auf Android mit klarer Trennung von Spielwelt, Engine und legaler Multi-Player-Implementierung.
