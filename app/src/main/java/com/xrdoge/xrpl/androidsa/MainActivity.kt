@@ -111,6 +111,34 @@ private data class RakNetSignal(
     val description: String,
 )
 
+private enum class RakNetSignalState(val label: String, val color: Color) {
+    IDLE("idle", Color(0xFF616161)),
+    HANDSHAKE("handshake", Color(0xFF1976D2)),
+    REPLY("reply", Color(0xFF2E7D32)),
+    PAYLOAD("payload", Color(0xFF7B1FA2)),
+    TIMEOUT("timeout", Color(0xFFD32F2F)),
+}
+
+private fun classifyRakNetSignalState(signal: RakNetSignal, recentEvents: List<String>): RakNetSignalState {
+    val matchingEvent = recentEvents.firstOrNull { event ->
+        event.contains(signal.label, ignoreCase = true) ||
+            event.contains(signal.code, ignoreCase = true)
+    } ?: return RakNetSignalState.IDLE
+
+    return when {
+        matchingEvent.contains("timeout", ignoreCase = true) ||
+            matchingEvent.contains("malformed", ignoreCase = true) -> RakNetSignalState.TIMEOUT
+        matchingEvent.contains("open connection reply", ignoreCase = true) ||
+            matchingEvent.contains("reply", ignoreCase = true) -> RakNetSignalState.REPLY
+        matchingEvent.contains("rpc wrapper", ignoreCase = true) ||
+            matchingEvent.contains("payload", ignoreCase = true) -> RakNetSignalState.PAYLOAD
+        matchingEvent.contains("connected ping", ignoreCase = true) ||
+            matchingEvent.contains("open connection request", ignoreCase = true) ||
+            matchingEvent.contains("handshake", ignoreCase = true) -> RakNetSignalState.HANDSHAKE
+        else -> RakNetSignalState.IDLE
+    }
+}
+
 private val RakNetSignals = listOf(
     RakNetSignal("0x00", "RakNet connected ping", "Connected-ping handshake signal"),
     RakNetSignal("0x1c", "RakNet open connection request", "Connection-start probe"),
@@ -410,11 +438,9 @@ private fun AndroidSAApp() {
                     }
                 }
             }
-            SectionCard(title = "RakNet / Open:MP signal map") {
+            SectionCard(title = "RakNet / Open:MP signal diagnostics") {
                 RakNetSignals.forEach { signal ->
-                    val signalMatched = snapshot.recentEvents.any { event ->
-                        event.contains(signal.label, ignoreCase = true)
-                    }
+                    val signalState = classifyRakNetSignalState(signal, snapshot.recentEvents)
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -432,8 +458,8 @@ private fun AndroidSAApp() {
                             )
                         }
                         Text(
-                            text = if (signalMatched) "seen" else "idle",
-                            color = if (signalMatched) Color(0xFF2E7D32) else Color(0xFF616161),
+                            text = signalState.label,
+                            color = signalState.color,
                             style = MaterialTheme.typography.labelMedium,
                             fontWeight = FontWeight.Bold,
                         )
