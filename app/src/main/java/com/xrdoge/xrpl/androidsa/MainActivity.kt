@@ -30,6 +30,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.CancellationException
@@ -51,7 +52,31 @@ private data class ServerProfile(
     val lastState: String = "unknown",
 )
 
+private enum class ServerHealthStatus(val label: String) {
+    HEALTHY("healthy"),
+    SLOW("slow"),
+    UNREACHABLE("unreachable"),
+    UNKNOWN("unknown"),
+}
+
 private fun serverEndpoint(profile: ServerProfile): String = "${profile.host}:${profile.port}"
+
+private fun classifyServerHealth(profile: ServerProfile): ServerHealthStatus {
+    val normalizedState = profile.lastState.lowercase()
+    return when {
+        normalizedState.contains("connected") && (profile.lastLatencyMs == null || profile.lastLatencyMs <= 150) -> ServerHealthStatus.HEALTHY
+        normalizedState.contains("connected") && profile.lastLatencyMs != null && profile.lastLatencyMs <= 500 -> ServerHealthStatus.SLOW
+        normalizedState.contains("timeout") || normalizedState.contains("error") || normalizedState.contains("failed") || normalizedState.contains("disconnected") -> ServerHealthStatus.UNREACHABLE
+        else -> ServerHealthStatus.UNKNOWN
+    }
+}
+
+private fun serverHealthColor(status: ServerHealthStatus): Color = when (status) {
+    ServerHealthStatus.HEALTHY -> Color(0xFF2E7D32)
+    ServerHealthStatus.SLOW -> Color(0xFFF9A825)
+    ServerHealthStatus.UNREACHABLE -> Color(0xFFD32F2F)
+    ServerHealthStatus.UNKNOWN -> Color(0xFF616161)
+}
 
 private val InitialOverview = NativeOverview(
     clientName = "AndroidSA",
@@ -287,7 +312,7 @@ private fun AndroidSAApp() {
                 fontWeight = FontWeight.Bold,
             )
             Text(
-                text = "Expanded Android control surface for SA:MP / Open:MP runtime state, guided commands, and diagnostics.",
+                text = "AndroidSA Server Health Dashboard — SA:MP / Open:MP server diagnostics and launcher status.",
                 style = MaterialTheme.typography.bodyLarge,
             )
             SectionCard(title = "Session overview") {
@@ -305,6 +330,41 @@ private fun AndroidSAApp() {
                 OverviewValueRow(title = "Reconnect attempts", value = overview.connectionAttempts.toString())
                 OverviewValueRow(title = "Last command", value = overview.lastCommand)
                 OverviewValueRow(title = "Active operation", value = commandInFlight ?: "idle")
+            }
+            SectionCard(title = "Server health dashboard") {
+                serverProfiles.forEach { profile ->
+                    val status = classifyServerHealth(profile)
+                    val statusColor = serverHealthColor(status)
+                    val statusDescription = when (status) {
+                        ServerHealthStatus.HEALTHY -> "Responsive server"
+                        ServerHealthStatus.SLOW -> "Slow response"
+                        ServerHealthStatus.UNREACHABLE -> "No healthy response"
+                        ServerHealthStatus.UNKNOWN -> "Awaiting probe"
+                    }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text(
+                                text = "${profile.label} · ${serverEndpoint(profile)}",
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.SemiBold,
+                            )
+                            Text(
+                                text = "$statusDescription · last latency: ${profile.lastLatencyMs ?: 0} ms",
+                                style = MaterialTheme.typography.bodySmall,
+                            )
+                        }
+                        Text(
+                            text = status.label,
+                            color = statusColor,
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.Bold,
+                        )
+                    }
+                }
             }
             SectionCard(title = "Guided controls") {
                 SectionCard(title = "Server browser") {
@@ -367,8 +427,11 @@ private fun AndroidSAApp() {
                                     style = MaterialTheme.typography.titleSmall,
                                     fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
                                 )
+                                val profileStatus = classifyServerHealth(profile)
+                                val profileStatusColor = serverHealthColor(profileStatus)
                                 Text(
-                                    text = "Last state: ${profile.lastState} · Last latency: ${profile.lastLatencyMs ?: 0} ms",
+                                    text = "Health: ${profileStatus.label} · Last state: ${profile.lastState} · Last latency: ${profile.lastLatencyMs ?: 0} ms",
+                                    color = profileStatusColor,
                                     style = MaterialTheme.typography.bodySmall,
                                 )
                                 Row(
