@@ -63,6 +63,20 @@
 - WebView Cache und Cookies: `/data/user/0/com.rockstargames.gtasager/app_webview/`
 - Code Cache (ART JIT/AOD compilierter Code): `/data/user/0/com.rockstargames.gtasager/code_cache/`
 
+## Dateisystem-Ebene: Externe und Dynamische Mounts
+
+- Externe Dateien & DLC-Assets: `/storage/emulated/0/Android/data/com.rockstargames.gtasager/files/`
+- Expansion / OBB Payload-Container: `/storage/emulated/0/Android/obb/com.rockstargames.gtasager/main.211277.com.rockstargames.gtasager.obb`
+- Patch-OBB-Container: `/storage/emulated/0/Android/obb/com.rockstargames.gtasager/patch.211277.com.rockstargames.gtasager.obb`
+- Zusätzliche Asset- und Spielstapel-Pfade unterhalb des App-Datenbereichs: `/storage/emulated/0/Android/data/com.rockstargames.gtasager/` mit den vom Spiel/Asset-Packs verwalteten Unterordnern
+
+## Runtime- und Speicher-Kausalität
+
+- ART-Laufzeitumgebung (AOT/JIT Compiled Code): `/data/app/~~[Hash]==/com.rockstargames.gtasager-[Hash2]==/oat/`
+- Native Crashdumps & Tombstones: `/data/tombstones/` (bei schwerwiegenden Segmentierungsfehlern im JNI/C++-Subsystem)
+- Graphics Pipeline Shader Cache: `/data/user/0/com.rockstargames.gtasager/code_cache/com.android.opengl.shaders_cache`
+- Laufzeitbeziehung: Das eigentliche Spiel-Asset-/OBB- und Runtime-Setup lebt getrennt von der App-Installation und von der privaten `shared_prefs`-/`databases`-Ebene, was die Mobil-Game-Architektur als eigenständiges Paket mit dynamischen DLC-/Patch-Assets bestätigt.
+
 ## Kurzfazit
 
 Die Paketstruktur zeigt, dass `com.rockstargames.gtasager` ein vollständiges Android-Spiel-Ökosystem mit App-Assets, OBB-Downloads, Flutter-/WebView-Teilen, Firebase/Play-Asset-Pack-Integration und Crash-Reporting ist. Die Daten- und Speicherpfade bestätigen die realistische Trennung zwischen App-Binary, Benutzer-/Asset-Daten und Laufzeit-Subsystemen.
