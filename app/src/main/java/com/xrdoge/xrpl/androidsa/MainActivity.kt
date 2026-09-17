@@ -61,6 +61,14 @@ private enum class ServerHealthStatus(val label: String) {
     UNKNOWN("unknown"),
 }
 
+private enum class ProbeResult(val label: String, val description: String, val color: Color) {
+    IDLE("idle", "No probe evidence yet", Color(0xFF616161)),
+    HANDSHAKE("handshake", "Probe reached the server and started a RakNet-style exchange", Color(0xFF1976D2)),
+    REPLY("reply", "Server replied with a valid connection/negotiation signal", Color(0xFF2E7D32)),
+    PAYLOAD("payload", "RPC wrapper or payload inspection succeeded", Color(0xFF7B1FA2)),
+    TIMEOUT("timeout", "Probe failed or timed out before a healthy response", Color(0xFFD32F2F)),
+}
+
 private fun serverEndpoint(profile: ServerProfile): String = "${profile.host}:${profile.port}"
 
 private fun loadStoredServerProfiles(context: Context): List<ServerProfile> {
@@ -103,6 +111,22 @@ private fun serverHealthColor(status: ServerHealthStatus): Color = when (status)
     ServerHealthStatus.SLOW -> Color(0xFFF9A825)
     ServerHealthStatus.UNREACHABLE -> Color(0xFFD32F2F)
     ServerHealthStatus.UNKNOWN -> Color(0xFF616161)
+}
+
+private fun classifyProbeResult(profile: ServerProfile, recentEvents: List<String>): ProbeResult {
+    val normalizedState = profile.lastState.lowercase()
+    if (normalizedState.contains("timeout") || normalizedState.contains("error") || normalizedState.contains("failed")) {
+        return ProbeResult.TIMEOUT
+    }
+
+    val eventText = recentEvents.joinToString("\n").lowercase()
+    return when {
+        eventText.contains("0x7d") || eventText.contains("rpc wrapper") || eventText.contains("payload") -> ProbeResult.PAYLOAD
+        eventText.contains("0x1d") || eventText.contains("open connection reply") || eventText.contains("reply") -> ProbeResult.REPLY
+        eventText.contains("0x1c") || eventText.contains("open connection request") || eventText.contains("connected ping") || eventText.contains("handshake") -> ProbeResult.HANDSHAKE
+        normalizedState.contains("connected") -> ProbeResult.REPLY
+        else -> ProbeResult.IDLE
+    }
 }
 
 private data class RakNetSignal(
@@ -407,6 +431,7 @@ private fun AndroidSAApp() {
                 serverProfiles.forEach { profile ->
                     val status = classifyServerHealth(profile)
                     val statusColor = serverHealthColor(status)
+                    val probeResult = classifyProbeResult(profile, snapshot.recentEvents)
                     val statusDescription = when (status) {
                         ServerHealthStatus.HEALTHY -> "Responsive server"
                         ServerHealthStatus.SLOW -> "Slow response"
@@ -426,6 +451,11 @@ private fun AndroidSAApp() {
                             )
                             Text(
                                 text = "$statusDescription · last latency: ${profile.lastLatencyMs ?: 0} ms",
+                                style = MaterialTheme.typography.bodySmall,
+                            )
+                            Text(
+                                text = "Probe result: ${probeResult.label} · ${probeResult.description}",
+                                color = probeResult.color,
                                 style = MaterialTheme.typography.bodySmall,
                             )
                         }
