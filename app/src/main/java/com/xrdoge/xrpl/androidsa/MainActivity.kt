@@ -129,6 +129,34 @@ private fun classifyProbeResult(profile: ServerProfile, recentEvents: List<Strin
     }
 }
 
+private fun buildProbeTimeline(profile: ServerProfile, recentEvents: List<String>): List<String> {
+    val normalizedState = profile.lastState.lowercase()
+    val sequence = mutableListOf<String>()
+    if (normalizedState.contains("timeout") || normalizedState.contains("error") || normalizedState.contains("failed")) {
+        sequence += "timeout after handshake attempt"
+        return sequence
+    }
+
+    val eventText = recentEvents.joinToString("\n").lowercase()
+    if (eventText.contains("0x1c") || eventText.contains("open connection request") || eventText.contains("handshake")) {
+        sequence += "handshake started"
+    }
+    if (eventText.contains("0x1d") || eventText.contains("open connection reply") || eventText.contains("reply")) {
+        sequence += "server reply observed"
+    }
+    if (eventText.contains("0x7d") || eventText.contains("rpc wrapper") || eventText.contains("payload")) {
+        sequence += "rpc payload wrapper received"
+    }
+    if (sequence.isEmpty()) {
+        sequence += if (normalizedState.contains("connected")) {
+            "connected state without payload trace"
+        } else {
+            "no signal seen yet"
+        }
+    }
+    return sequence
+}
+
 private data class RakNetSignal(
     val code: String,
     val label: String,
@@ -465,6 +493,30 @@ private fun AndroidSAApp() {
                             style = MaterialTheme.typography.labelLarge,
                             fontWeight = FontWeight.Bold,
                         )
+                    }
+                }
+            }
+            SectionCard(title = "Probe detail view") {
+                serverProfiles.forEach { profile ->
+                    val probeResult = classifyProbeResult(profile, snapshot.recentEvents)
+                    val timeline = buildProbeTimeline(profile, snapshot.recentEvents)
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text(
+                            text = "${profile.label} · ${serverEndpoint(profile)}",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                        Text(
+                            text = "Current result: ${probeResult.label}",
+                            color = probeResult.color,
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                        timeline.forEach { step ->
+                            Text(
+                                text = "• $step",
+                                style = MaterialTheme.typography.bodySmall,
+                            )
+                        }
                     }
                 }
             }
