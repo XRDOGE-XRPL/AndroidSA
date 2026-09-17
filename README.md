@@ -33,6 +33,7 @@ Das Repository enthält die zentralen Markdown-Dateien:
 - `app/src/main/cpp/README.md` – Native-Layer-Dokumentation
 - `docs/ANDROID_DEVICE_CI_READY_CHECKLIST.md` – optionaler Geräte-/Emulator-Check
 - `docs/RELEASE_CHECKLIST.md` – finale Release-Gate-Checkliste
+- `docs/GTA_SA_MOBILE_SYSTEMANALYSE.md` – APK-/Dateisystem-/Runtime-Analyse der echten `com.rockstargames.gtasager`-App-Struktur
 
 ## Projektstatus
 
