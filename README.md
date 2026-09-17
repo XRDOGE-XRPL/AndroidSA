@@ -258,7 +258,7 @@ ctest --test-dir build/native-tests --output-on-failure
 ./gradlew --no-daemon :app:assemble --stacktrace
 ```
 
-Für eine einmalige lokale Ausführung der gleichen Sequenz steht auch ein Wrapper-Skript bereit:
+Für eine einmalige lokale Ausführung der gleichen Sequenz steht auch ein Wrapper-Skript bereit. Es prüft automatisch, ob Google Maven erreichbar ist, startet bei Bedarf den lokalen Proxy und setzt `ANDROIDSA_GOOGLE_MAVEN_URL` für den Gradle-Lauf:
 
 ```bash
 bash tools/run_release_validation.sh
