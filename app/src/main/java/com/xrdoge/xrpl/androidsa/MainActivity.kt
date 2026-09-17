@@ -52,6 +52,7 @@ private data class ServerProfile(
     val port: Int,
     val lastLatencyMs: Int? = null,
     val lastState: String = "unknown",
+    val probeHistory: List<String> = emptyList(),
 )
 
 private enum class ServerHealthStatus(val label: String) {
@@ -76,23 +77,34 @@ private fun loadStoredServerProfiles(context: Context): List<ServerProfile> {
     val storedValue = prefs.getString(ServerProfilesPreferencesKey, null) ?: return DefaultServerProfiles
     return storedValue.split(";\n").filter { it.isNotBlank() }.mapNotNull { entry ->
         val parts = entry.split("|")
-        if (parts.size != 3) return@mapNotNull null
+        if (parts.size < 3) return@mapNotNull null
         val label = parts[0].trim()
         val host = parts[1].trim()
         val port = parts[2].trim().toIntOrNull() ?: return@mapNotNull null
         if (label.isEmpty() || host.isEmpty()) return@mapNotNull null
+        val lastState = if (parts.size >= 4) parts[3].trim() else "unknown"
+        val probeHistory = if (parts.size >= 5) {
+            parts[4].split(",").map { it.trim() }.filter { it.isNotEmpty() }
+        } else {
+            emptyList()
+        }
         ServerProfile(
             id = "$host:$port",
             label = label,
             host = host,
             port = port,
+            lastState = lastState,
+            probeHistory = probeHistory,
         )
     }.ifEmpty { DefaultServerProfiles }
 }
 
 private fun persistServerProfiles(context: Context, profiles: List<ServerProfile>) {
     val prefs = context.getSharedPreferences("androidsa_server_health", Context.MODE_PRIVATE)
-    val payload = profiles.joinToString(";\n") { profile -> "${profile.label}|${profile.host}|${profile.port}" }
+    val payload = profiles.joinToString(";\n") { profile ->
+        val history = profile.probeHistory.joinToString(",")
+        "${profile.label}|${profile.host}|${profile.port}|${profile.lastState}|$history"
+    }
     prefs.edit().putString(ServerProfilesPreferencesKey, payload).apply()
 }
 
@@ -320,9 +332,11 @@ private fun AndroidSAApp() {
             return
         }
         val current = serverProfiles[activeIndex]
+        val nextProbeHistory = buildProbeTimeline(current, snapshotToTrack.recentEvents)
         val updated = current.copy(
             lastLatencyMs = snapshotToTrack.overview.latencyMs,
             lastState = snapshotToTrack.overview.connectionState,
+            probeHistory = nextProbeHistory,
         )
         if (updated != current) {
             serverProfiles = serverProfiles.toMutableList().also { it[activeIndex] = updated }
@@ -499,7 +513,7 @@ private fun AndroidSAApp() {
             SectionCard(title = "Probe detail view") {
                 serverProfiles.forEach { profile ->
                     val probeResult = classifyProbeResult(profile, snapshot.recentEvents)
-                    val timeline = buildProbeTimeline(profile, snapshot.recentEvents)
+                    val timeline = profile.probeHistory.ifEmpty { buildProbeTimeline(profile, snapshot.recentEvents) }
                     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         Text(
                             text = "${profile.label} · ${serverEndpoint(profile)}",
