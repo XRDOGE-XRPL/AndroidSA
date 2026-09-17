@@ -101,6 +101,17 @@ bool parseNonNegativeInteger(const std::string& value, int* result) {
     return parsed.ec == std::errc() && parsed.ptr == end && *result >= 0;
 }
 
+std::string canonicalizeAcceptedCommand(const std::string& sanitized, const std::string& normalized) {
+    const auto separator = normalized.find(':');
+    if (separator == std::string::npos) {
+        return normalized;
+    }
+
+    const auto keyword = normalized.substr(0, separator);
+    const auto value = trim(sanitized.substr(separator + 1));
+    return keyword + ":" + value;
+}
+
 std::string packetTypeName(unsigned char packetId) {
     switch (packetId) {
         case 0x00:
@@ -571,7 +582,7 @@ bool ClientState::dispatchCommand(const std::string& command) {
         eventMessage = "Generic command dispatched: " + sanitized;
     }
 
-    lastCommand_ = sanitized;
+    lastCommand_ = canonicalizeAcceptedCommand(sanitized, normalized);
     recordEventLocked(eventMessage);
     logging::Logger::info("AndroidSA", diagnostics_);
     return true;
