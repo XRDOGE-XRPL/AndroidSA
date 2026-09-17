@@ -20,7 +20,7 @@ Es ist nicht vorgesehen für:
 - RenderWare- oder Mobile-Game-Integration
 - Anbieten eines fertigen Open:MP-Android-Clients
 
-Eine echte mobile Multiplayer-Variante braucht ein separates, legales Projekt auf Basis von GTA SA Mobile mit eigener MP-Schicht; AndroidSA bleibt in dieser Sicht die diagnostische und launcherartige Vorstufe.
+Aktuell beginnt der RakNet-/Open:MP-Teil mit klarer Paket- und Wrapper-Erkennung (z. B. `0x00`, `0x1c`, `0x1d`, `0x7d`) als diagnostische Server-Health-Schicht. Eine echte mobile Multiplayer-Variante braucht ein separates, legales Projekt auf Basis von GTA SA Mobile mit eigener MP-Schicht; AndroidSA bleibt in dieser Sicht die diagnostische und launcherartige Vorstufe.
 
 ## Inhalt
 

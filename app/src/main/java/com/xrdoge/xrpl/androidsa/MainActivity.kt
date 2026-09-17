@@ -105,6 +105,19 @@ private fun serverHealthColor(status: ServerHealthStatus): Color = when (status)
     ServerHealthStatus.UNKNOWN -> Color(0xFF616161)
 }
 
+private data class RakNetSignal(
+    val code: String,
+    val label: String,
+    val description: String,
+)
+
+private val RakNetSignals = listOf(
+    RakNetSignal("0x00", "RakNet connected ping", "Connected-ping handshake signal"),
+    RakNetSignal("0x1c", "RakNet open connection request", "Connection-start probe"),
+    RakNetSignal("0x1d", "RakNet open connection reply", "Server reply / negotiation"),
+    RakNetSignal("0x7d", "Open:MP / SA:MP RPC wrapper", "RPC payload wrapper for protocol inspection"),
+)
+
 private val InitialOverview = NativeOverview(
     clientName = "AndroidSA",
     transport = "loading",
@@ -392,6 +405,36 @@ private fun AndroidSAApp() {
                             text = status.label,
                             color = statusColor,
                             style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.Bold,
+                        )
+                    }
+                }
+            }
+            SectionCard(title = "RakNet / Open:MP signal map") {
+                RakNetSignals.forEach { signal ->
+                    val signalMatched = snapshot.recentEvents.any { event ->
+                        event.contains(signal.label, ignoreCase = true)
+                    }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                            Text(
+                                text = "${signal.code} · ${signal.label}",
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.SemiBold,
+                            )
+                            Text(
+                                text = signal.description,
+                                style = MaterialTheme.typography.bodySmall,
+                            )
+                        }
+                        Text(
+                            text = if (signalMatched) "seen" else "idle",
+                            color = if (signalMatched) Color(0xFF2E7D32) else Color(0xFF616161),
+                            style = MaterialTheme.typography.labelMedium,
                             fontWeight = FontWeight.Bold,
                         )
                     }

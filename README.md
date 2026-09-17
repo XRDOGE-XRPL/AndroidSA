@@ -17,7 +17,7 @@ Nicht im Scope sind:
 - Portierung von `omp-client.dll` oder PC-GTA-SA-Assets auf Android
 - der Anspruch, Open:MP selbst sei ein fertiger Handy-Client
 
-Open:MP bleibt ein Server-/Launcher- und PC-Ökosystem; AndroidSA modelliert die diagnostische Server-/Netzwerk-Seite, nicht ein vollständiges Spiel-Client-Backend.
+Open:MP bleibt ein Server-/Launcher- und PC-Ökosystem; AndroidSA modelliert die diagnostische Server-/Netzwerk-Seite, nicht ein vollständiges Spiel-Client-Backend. Der RakNet-/Open:MP-Teil beginnt bewusst mit der Erkennung und Klassifizierung von Packetsignalen, nicht mit Gameplay-Synchronisierung.
 
 
 ## Projektstatus
