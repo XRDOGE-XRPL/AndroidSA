@@ -258,6 +258,12 @@ ctest --test-dir build/native-tests --output-on-failure
 ./gradlew --no-daemon :app:assemble --stacktrace
 ```
 
+Für eine einmalige lokale Ausführung der gleichen Sequenz steht auch ein Wrapper-Skript bereit:
+
+```bash
+bash tools/run_release_validation.sh
+```
+
 ## Optionales Android-Gerät / Emulator-Setup
 
 Für lokale APK-Verifikation auf Android-Gerät oder Emulator gilt nur noch ein optionaler, nicht required Pfad:
