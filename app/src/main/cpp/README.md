@@ -2,6 +2,18 @@
 
 Der Ordner `app/src/main/cpp` enthält den nativen Kern von AndroidSA. Hier liegen JNI-Einstiegspunkte, Logging, Zustandsverwaltung, UDP-Probing und native Host-Tests.
 
+## Umfang und reale Grenzen
+
+Der native Layer arbeitet bewusst auf der Ebene von Diagnose, Status und Server-/Netzwerk-Interaktion. Er kann:
+
+- UDP-Probes, Ping- und Connect-Checks simulieren
+- Paket- und RPC-Wrapper-Flüsse analysieren
+- Event-History und Laufzeitstatus für UI und Debugging bereitstellen
+
+Er ist nicht dafür vorgesehen, ein echtes GTA-SA-Mobile-Spiel-Binary zu injizieren oder eine fertige Open:MP-Android-Gameplay-Schicht zu liefern. AndroidSA modelliert also die diagnostische und launcherartige Server-/Netzwerk-Seite, nicht den vollständigen Spielclient.
+
+Open:MP bleibt im realen Stack ein PC-/Server- und Launcher-Ökosystem. Eine legale Android-Variante würde ein eigenständiges Projekt mit eigener GTA-SA-Mobile-MP-Schicht erfordern.
+
 ## Bestandteile
 
 - `CMakeLists.txt`  
@@ -127,6 +139,16 @@ ctest --test-dir build/native-tests --output-on-failure
 - Änderungen an UDP-Probing oder Summary-Feldern mit Host-Test und JVM-Tests absichern
 - Event-Texte bewusst wählen, da sie direkt in der Android-Oberfläche erscheinen
 - Fehlerdiagnosen so formulieren, dass die Bridge sie konsistent als Fehlerzustand interpretieren kann
+- keine Gameplay-Fiktion in native Logs oder Summary-Daten einbringen
+
+## Praktische Betriebsregeln
+
+Für den nativen Stack bleiben diese Regeln verbindlich:
+
+- Diagnose und Protokollanalyse sind Gegenstand des Projekts
+- echte Spiel-Gameplay-Integration ist nicht Bestandteil
+- Paketsignale als technische Hinweise behandeln, nicht als Gameplay-Metadaten
+- Server- und Netzwerk-Status bleiben die primäre produktive Funktionalität
 
 ## Vollständiges Setup und Durchführung `run test`
 

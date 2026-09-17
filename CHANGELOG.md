@@ -2,6 +2,33 @@
 
 Alle relevanten Änderungen dieses Projekts werden in dieser Datei dokumentiert.
 
+## [Documentation Expansion / Scope Clarification]
+
+### Added
+
+- vollständige, konsistente Projekt-Dokumentation über Scope, Architektur, Grenzen und reale Produktpositionierung
+- explizite Erläuterung, dass AndroidSA keine Gameplay-Client- oder Open:MP-Mobile-Portierung ist
+- zusätzliche Beschreibung der Paket-/Signal-Erkennung für RakNet und Open:MP/SA:MP als Diagnosefunktionalität
+- dokumentierte Trennung zwischen Loopback-Profilen, echten UDP-Remote-Probes und serverdiagnostischem UI-Workflow
+
+### Changed
+
+- zentrale README-, Setup- und Modul-Dokumentation auf die reale Diagnose-/Launcher-Architektur ausgerichtet
+- Projektvorstellung und Markdown-Dokumente auf klare Begrenzung zwischen Netzwerk-Status und Spieler-Sync hin unterschieden
+- Release- und Gerätechecklisten auf den finalen nicht-emulatorgebundenen CI-Pfad angepasst
+- App-/Native-Doku ergänzt mit praktischen Regeln und Betriebsgrenzen für Commands, Logs und Events
+
+### Fixed
+
+- veraltete oder missverständliche Aussagen über „Android-Client“ oder vermeintliche Open:MP-Gameplay-Integration aus den Haupt-Dokumenten entfernt
+- doppelte oder unklare Produktbeschreibungen in Setup- und Release-Doku auf den realen Scope gekürzt
+- Dokumentationslücken in den Markdown-Dateien geschlossen, damit die Beschreibung mit dem tatsächlichen C++/Kotlin-Stack übereinstimmt
+
+### Documentation
+
+- alle relevanten `.md`-Dateien im Repository wurden auf den gleichen, konsistenten Produktzustand ausgerichtet
+- README, Setup, Changelog, App-/Native-Doku und Projektvorstellung teilen nun dieselbe reale Produktinterpretation
+
 ## [Final / Prototype Completion]
 
 ### Added

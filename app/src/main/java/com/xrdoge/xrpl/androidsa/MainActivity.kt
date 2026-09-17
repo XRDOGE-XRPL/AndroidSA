@@ -1,5 +1,6 @@
 package com.xrdoge.xrpl.androidsa
 
+import android.content.Context
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import java.util.Locale
@@ -30,6 +31,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.CancellationException
@@ -41,6 +43,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.withContext
 
 private const val MaxUiRecentEvents = 12
+private const val ServerProfilesPreferencesKey = "androidsa_server_profiles"
 
 private data class ServerProfile(
     val id: String,
@@ -49,9 +52,163 @@ private data class ServerProfile(
     val port: Int,
     val lastLatencyMs: Int? = null,
     val lastState: String = "unknown",
+    val probeHistory: List<String> = emptyList(),
 )
 
+private enum class ServerHealthStatus(val label: String) {
+    HEALTHY("healthy"),
+    SLOW("slow"),
+    UNREACHABLE("unreachable"),
+    UNKNOWN("unknown"),
+}
+
+private enum class ProbeResult(val label: String, val description: String, val color: Color) {
+    IDLE("idle", "No probe evidence yet", Color(0xFF616161)),
+    HANDSHAKE("handshake", "Probe reached the server and started a RakNet-style exchange", Color(0xFF1976D2)),
+    REPLY("reply", "Server replied with a valid connection/negotiation signal", Color(0xFF2E7D32)),
+    PAYLOAD("payload", "RPC wrapper or payload inspection succeeded", Color(0xFF7B1FA2)),
+    TIMEOUT("timeout", "Probe failed or timed out before a healthy response", Color(0xFFD32F2F)),
+}
+
 private fun serverEndpoint(profile: ServerProfile): String = "${profile.host}:${profile.port}"
+
+private fun loadStoredServerProfiles(context: Context): List<ServerProfile> {
+    val prefs = context.getSharedPreferences("androidsa_server_health", Context.MODE_PRIVATE)
+    val storedValue = prefs.getString(ServerProfilesPreferencesKey, null) ?: return DefaultServerProfiles
+    return storedValue.split(";\n").filter { it.isNotBlank() }.mapNotNull { entry ->
+        val parts = entry.split("|")
+        if (parts.size < 3) return@mapNotNull null
+        val label = parts[0].trim()
+        val host = parts[1].trim()
+        val port = parts[2].trim().toIntOrNull() ?: return@mapNotNull null
+        if (label.isEmpty() || host.isEmpty()) return@mapNotNull null
+        val lastState = if (parts.size >= 4) parts[3].trim() else "unknown"
+        val probeHistory = if (parts.size >= 5) {
+            parts[4].split(",").map { it.trim() }.filter { it.isNotEmpty() }
+        } else {
+            emptyList()
+        }
+        ServerProfile(
+            id = "$host:$port",
+            label = label,
+            host = host,
+            port = port,
+            lastState = lastState,
+            probeHistory = probeHistory,
+        )
+    }.ifEmpty { DefaultServerProfiles }
+}
+
+private fun persistServerProfiles(context: Context, profiles: List<ServerProfile>) {
+    val prefs = context.getSharedPreferences("androidsa_server_health", Context.MODE_PRIVATE)
+    val payload = profiles.joinToString(";\n") { profile ->
+        val history = profile.probeHistory.joinToString(",")
+        "${profile.label}|${profile.host}|${profile.port}|${profile.lastState}|$history"
+    }
+    prefs.edit().putString(ServerProfilesPreferencesKey, payload).apply()
+}
+
+private fun classifyServerHealth(profile: ServerProfile): ServerHealthStatus {
+    val normalizedState = profile.lastState.lowercase()
+    return when {
+        normalizedState.contains("connected") && (profile.lastLatencyMs == null || profile.lastLatencyMs <= 150) -> ServerHealthStatus.HEALTHY
+        normalizedState.contains("connected") && profile.lastLatencyMs != null && profile.lastLatencyMs <= 500 -> ServerHealthStatus.SLOW
+        normalizedState.contains("timeout") || normalizedState.contains("error") || normalizedState.contains("failed") || normalizedState.contains("disconnected") -> ServerHealthStatus.UNREACHABLE
+        else -> ServerHealthStatus.UNKNOWN
+    }
+}
+
+private fun serverHealthColor(status: ServerHealthStatus): Color = when (status) {
+    ServerHealthStatus.HEALTHY -> Color(0xFF2E7D32)
+    ServerHealthStatus.SLOW -> Color(0xFFF9A825)
+    ServerHealthStatus.UNREACHABLE -> Color(0xFFD32F2F)
+    ServerHealthStatus.UNKNOWN -> Color(0xFF616161)
+}
+
+private fun classifyProbeResult(profile: ServerProfile, recentEvents: List<String>): ProbeResult {
+    val normalizedState = profile.lastState.lowercase()
+    if (normalizedState.contains("timeout") || normalizedState.contains("error") || normalizedState.contains("failed")) {
+        return ProbeResult.TIMEOUT
+    }
+
+    val eventText = recentEvents.joinToString("\n").lowercase()
+    return when {
+        eventText.contains("0x7d") || eventText.contains("rpc wrapper") || eventText.contains("payload") -> ProbeResult.PAYLOAD
+        eventText.contains("0x1d") || eventText.contains("open connection reply") || eventText.contains("reply") -> ProbeResult.REPLY
+        eventText.contains("0x1c") || eventText.contains("open connection request") || eventText.contains("connected ping") || eventText.contains("handshake") -> ProbeResult.HANDSHAKE
+        normalizedState.contains("connected") -> ProbeResult.REPLY
+        else -> ProbeResult.IDLE
+    }
+}
+
+private fun buildProbeTimeline(profile: ServerProfile, recentEvents: List<String>): List<String> {
+    val normalizedState = profile.lastState.lowercase()
+    val sequence = mutableListOf<String>()
+    if (normalizedState.contains("timeout") || normalizedState.contains("error") || normalizedState.contains("failed")) {
+        sequence += "timeout after handshake attempt"
+        return sequence
+    }
+
+    val eventText = recentEvents.joinToString("\n").lowercase()
+    if (eventText.contains("0x1c") || eventText.contains("open connection request") || eventText.contains("handshake")) {
+        sequence += "handshake started"
+    }
+    if (eventText.contains("0x1d") || eventText.contains("open connection reply") || eventText.contains("reply")) {
+        sequence += "server reply observed"
+    }
+    if (eventText.contains("0x7d") || eventText.contains("rpc wrapper") || eventText.contains("payload")) {
+        sequence += "rpc payload wrapper received"
+    }
+    if (sequence.isEmpty()) {
+        sequence += if (normalizedState.contains("connected")) {
+            "connected state without payload trace"
+        } else {
+            "no signal seen yet"
+        }
+    }
+    return sequence
+}
+
+private data class RakNetSignal(
+    val code: String,
+    val label: String,
+    val description: String,
+)
+
+private enum class RakNetSignalState(val label: String, val color: Color) {
+    IDLE("idle", Color(0xFF616161)),
+    HANDSHAKE("handshake", Color(0xFF1976D2)),
+    REPLY("reply", Color(0xFF2E7D32)),
+    PAYLOAD("payload", Color(0xFF7B1FA2)),
+    TIMEOUT("timeout", Color(0xFFD32F2F)),
+}
+
+private fun classifyRakNetSignalState(signal: RakNetSignal, recentEvents: List<String>): RakNetSignalState {
+    val matchingEvent = recentEvents.firstOrNull { event ->
+        event.contains(signal.label, ignoreCase = true) ||
+            event.contains(signal.code, ignoreCase = true)
+    } ?: return RakNetSignalState.IDLE
+
+    return when {
+        matchingEvent.contains("timeout", ignoreCase = true) ||
+            matchingEvent.contains("malformed", ignoreCase = true) -> RakNetSignalState.TIMEOUT
+        matchingEvent.contains("open connection reply", ignoreCase = true) ||
+            matchingEvent.contains("reply", ignoreCase = true) -> RakNetSignalState.REPLY
+        matchingEvent.contains("rpc wrapper", ignoreCase = true) ||
+            matchingEvent.contains("payload", ignoreCase = true) -> RakNetSignalState.PAYLOAD
+        matchingEvent.contains("connected ping", ignoreCase = true) ||
+            matchingEvent.contains("open connection request", ignoreCase = true) ||
+            matchingEvent.contains("handshake", ignoreCase = true) -> RakNetSignalState.HANDSHAKE
+        else -> RakNetSignalState.IDLE
+    }
+}
+
+private val RakNetSignals = listOf(
+    RakNetSignal("0x00", "RakNet connected ping", "Connected-ping handshake signal"),
+    RakNetSignal("0x1c", "RakNet open connection request", "Connection-start probe"),
+    RakNetSignal("0x1d", "RakNet open connection reply", "Server reply / negotiation"),
+    RakNetSignal("0x7d", "Open:MP / SA:MP RPC wrapper", "RPC payload wrapper for protocol inspection"),
+)
 
 private val InitialOverview = NativeOverview(
     clientName = "AndroidSA",
@@ -111,8 +268,9 @@ private fun AndroidSAApp() {
     var transportText by remember { mutableStateOf("RakNet-compatible UDP") }
     var diagnosticsText by remember { mutableStateOf("Ready for manual diagnostics") }
     var latencyText by remember { mutableStateOf("48") }
-    var serverProfiles by remember { mutableStateOf(DefaultServerProfiles) }
-    var selectedServerProfileId by remember { mutableStateOf(DefaultServerProfiles.first().id) }
+    val context = androidx.compose.ui.platform.LocalContext.current
+    var serverProfiles by remember { mutableStateOf(loadStoredServerProfiles(context)) }
+    var selectedServerProfileId by remember { mutableStateOf(serverProfiles.firstOrNull()?.id ?: DefaultServerProfiles.first().id) }
     var newServerLabel by remember { mutableStateOf("Custom") }
     var newServerHost by remember { mutableStateOf("127.0.0.1") }
     var newServerPort by remember { mutableStateOf("7777") }
@@ -121,6 +279,9 @@ private fun AndroidSAApp() {
     var commandInFlight by remember { mutableStateOf<String?>(null) }
     val commandMutex = remember { Mutex() }
     val scope = rememberCoroutineScope()
+    LaunchedEffect(serverProfiles) {
+        persistServerProfiles(context, serverProfiles)
+    }
     val overview = snapshot.overview
     val txRxRatio = when {
         overview.packetsSent == 0 && overview.packetsReceived == 0 -> "0.00"
@@ -171,9 +332,11 @@ private fun AndroidSAApp() {
             return
         }
         val current = serverProfiles[activeIndex]
+        val nextProbeHistory = buildProbeTimeline(current, snapshotToTrack.recentEvents)
         val updated = current.copy(
             lastLatencyMs = snapshotToTrack.overview.latencyMs,
             lastState = snapshotToTrack.overview.connectionState,
+            probeHistory = nextProbeHistory,
         )
         if (updated != current) {
             serverProfiles = serverProfiles.toMutableList().also { it[activeIndex] = updated }
@@ -287,7 +450,7 @@ private fun AndroidSAApp() {
                 fontWeight = FontWeight.Bold,
             )
             Text(
-                text = "Expanded Android control surface for SA:MP / Open:MP runtime state, guided commands, and diagnostics.",
+                text = "AndroidSA Server Health Dashboard — SA:MP / Open:MP server diagnostics and launcher status.",
                 style = MaterialTheme.typography.bodyLarge,
             )
             SectionCard(title = "Session overview") {
@@ -305,6 +468,99 @@ private fun AndroidSAApp() {
                 OverviewValueRow(title = "Reconnect attempts", value = overview.connectionAttempts.toString())
                 OverviewValueRow(title = "Last command", value = overview.lastCommand)
                 OverviewValueRow(title = "Active operation", value = commandInFlight ?: "idle")
+            }
+            SectionCard(title = "Server health dashboard") {
+                serverProfiles.forEach { profile ->
+                    val status = classifyServerHealth(profile)
+                    val statusColor = serverHealthColor(status)
+                    val probeResult = classifyProbeResult(profile, snapshot.recentEvents)
+                    val statusDescription = when (status) {
+                        ServerHealthStatus.HEALTHY -> "Responsive server"
+                        ServerHealthStatus.SLOW -> "Slow response"
+                        ServerHealthStatus.UNREACHABLE -> "No healthy response"
+                        ServerHealthStatus.UNKNOWN -> "Awaiting probe"
+                    }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text(
+                                text = "${profile.label} · ${serverEndpoint(profile)}",
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.SemiBold,
+                            )
+                            Text(
+                                text = "$statusDescription · last latency: ${profile.lastLatencyMs ?: 0} ms",
+                                style = MaterialTheme.typography.bodySmall,
+                            )
+                            Text(
+                                text = "Probe result: ${probeResult.label} · ${probeResult.description}",
+                                color = probeResult.color,
+                                style = MaterialTheme.typography.bodySmall,
+                            )
+                        }
+                        Text(
+                            text = status.label,
+                            color = statusColor,
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.Bold,
+                        )
+                    }
+                }
+            }
+            SectionCard(title = "Probe detail view") {
+                serverProfiles.forEach { profile ->
+                    val probeResult = classifyProbeResult(profile, snapshot.recentEvents)
+                    val timeline = profile.probeHistory.ifEmpty { buildProbeTimeline(profile, snapshot.recentEvents) }
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text(
+                            text = "${profile.label} · ${serverEndpoint(profile)}",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                        Text(
+                            text = "Current result: ${probeResult.label}",
+                            color = probeResult.color,
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                        timeline.forEach { step ->
+                            Text(
+                                text = "• $step",
+                                style = MaterialTheme.typography.bodySmall,
+                            )
+                        }
+                    }
+                }
+            }
+            SectionCard(title = "RakNet / Open:MP signal diagnostics") {
+                RakNetSignals.forEach { signal ->
+                    val signalState = classifyRakNetSignalState(signal, snapshot.recentEvents)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                            Text(
+                                text = "${signal.code} · ${signal.label}",
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.SemiBold,
+                            )
+                            Text(
+                                text = signal.description,
+                                style = MaterialTheme.typography.bodySmall,
+                            )
+                        }
+                        Text(
+                            text = signalState.label,
+                            color = signalState.color,
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.Bold,
+                        )
+                    }
+                }
             }
             SectionCard(title = "Guided controls") {
                 SectionCard(title = "Server browser") {
@@ -351,6 +607,7 @@ private fun AndroidSAApp() {
                             }
                             selectedServerProfileId = newProfile.id
                             serverAddressText = serverEndpoint(newProfile)
+                            persistServerProfiles(context, serverProfiles)
                         },
                     ) {
                         Text("Add server profile")
@@ -367,8 +624,11 @@ private fun AndroidSAApp() {
                                     style = MaterialTheme.typography.titleSmall,
                                     fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
                                 )
+                                val profileStatus = classifyServerHealth(profile)
+                                val profileStatusColor = serverHealthColor(profileStatus)
                                 Text(
-                                    text = "Last state: ${profile.lastState} · Last latency: ${profile.lastLatencyMs ?: 0} ms",
+                                    text = "Health: ${profileStatus.label} · Last state: ${profile.lastState} · Last latency: ${profile.lastLatencyMs ?: 0} ms",
+                                    color = profileStatusColor,
                                     style = MaterialTheme.typography.bodySmall,
                                 )
                                 Row(

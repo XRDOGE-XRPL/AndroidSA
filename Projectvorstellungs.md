@@ -2,7 +2,17 @@
 
 ## Kurzbeschreibung
 
-AndroidSA ist ein Android-Prototyp für einen SA:MP-/Open:MP-orientierten Client. Das Repository verbindet eine Jetpack-Compose-Oberfläche mit einer Kotlin/JNI-Brücke und einem nativen C++20-Kern. Der Schwerpunkt liegt auf einem vollständigen, dokumentierten Laufzeitmodell für Verbindungsstatus, Serverprofile, Diagnosemeldungen, Event-Historie, Paketstatistiken und UDP-Transport-Probing.
+AndroidSA ist ein Android-Prototyp für eine SA:MP-/Open:MP-orientierte Diagnose-, Probe- und Launcher-Schicht. Das Repository verbindet eine Jetpack-Compose-Oberfläche mit einer Kotlin/JNI-Brücke und einem nativen C++20-Kern. Der Schwerpunkt liegt auf einem vollständigen, dokumentierten Laufzeitmodell für Verbindungsstatus, Serverprofile, Diagnosemeldungen, Event-Historie, Paketstatistiken und UDP-Transport-Probing.
+
+## Reale Produktpositionierung
+
+AndroidSA ist kein „fake gameplay client“ und kein behaupteter Open:MP-Android-Client. Die Architektur arbeitet bewusst auf drei Ebenen:
+
+1. UI-Layer: Serverstatus, Profilverwaltung, Diagnoseansicht, Event-Log
+2. Kotlin/JNI-Layer: Validierung, Snapshot-Parsing und Command-Dispatch
+3. Native C++-Layer: UDP-Proby, Statusmodell, Paket- und Signal-Erkennung
+
+Die Kernidee ist: AndroidSA ist ein Sammler und Diagnostiker für das Netzwerk-/Server-Umfeld um SA:MP/Open:MP, nicht die komplette Spielwelt bzw. der mobile Spiel-Renderer.
 
 ## Aktueller Stand
 
@@ -75,6 +85,17 @@ Die Event-Historie ist eine kompakte Folge aus native Paket- und Statusereigniss
 
 Bei UDP-Inputs werden Payloads nach RakNet-/Open:MP-Mustern analysiert. Packet-IDs und RPC-Wrapper-Details werden aus dem Bytestream extrahiert und als lesbare Eventzeilen weitergereicht. Dadurch bleibt die History sowohl für Debugging als auch für UI-Darstellung nutzbar.
 
+## Signal- und Protokollschichten
+
+AndroidSA arbeitet bewusst nur mit einer diagnostischen Signal- und Paketschicht. Die wichtigsten Marker sind:
+
+- `0x00` → RakNet connected ping
+- `0x1c` → RakNet open connection request
+- `0x1d` → RakNet open connection reply
+- `0x7d` → Open:MP/SA:MP RPC wrapper
+
+Diese Signale zeigen an, dass der Stack Netzwerk-/Protokoll-Charakteristika überhaupt erkennt. Sie belegen aber keinen spielbaren Android-Client-Status und keine laufende GTA-Gameplay-Synchronisierung.
+
 ## Mutex-Sperren-Architektur
 
 Der zentrale Synchronisationspunkt liegt in `ClientState`:
@@ -105,6 +126,7 @@ Damit bleiben lokale native Tests stabil, während echte Produktivserver sauber 
 - Demo-/Prototyp-Stack für Kotlin/JNI-Interop mit C++20
 - native Diagnose-, Status- und Verbindungs-Repräsentation auf Android
 - Referenzarchitektur für Compose + NDK + CMake in einem GitHub-Repository
+- Diagnose-/Launcher- und Server-Browser-Auslegung statt Fake-Gameplay-Client
 
 ## Technische Highlights
 
@@ -156,4 +178,8 @@ ANDROIDSA_GOOGLE_MAVEN_URL=http://127.0.0.1:38473/ ./gradlew --no-daemon help :a
 ```
 
 Damit ist der Prototyp in einem stabilen, testbaren, dokumentierten Zustand für lokale Entwicklung, Host-Tests und mobile Android-Validierung.
+
+## Abschluss
+
+AndroidSA ist eine ehrliche, technisch gebundene Diagnose-/Launcher-Architektur für das Umfeld von SA:MP/Open:MP – aber kein Spielclient, keine gameplay-injektive Android-Übersetzung und kein Ersatz für einen echten MP-Client auf GTA SA Mobile. Die Entwicklung bleibt an der realen technischen Grenze orientiert: Netzwerk-Signale, Server-Health und klare, reproduzierbare Diagnose.
 

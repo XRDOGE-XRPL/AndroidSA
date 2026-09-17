@@ -18,11 +18,12 @@ Vor jedem Android-Emulator-/Device-Run muss die lokale Basisvalidierung erfolgre
 
 ## 1) Architektur- und Dokumentationsstatus
 
-- [ ] `README.md` deckt Architektur, Commands, UDP-Netzwerkmodi, Build, Test und Troubleshooting vollständig ab
+- [ ] `README.md` deckt Architektur, Commands, UDP-Netzwerkmodi, Build, Test, Scope-Grenzen und Troubleshooting vollständig ab
 - [ ] `Projectvorstellungs.md` enthält den aktuellen Projektstatus, die Komponentenstruktur und die Validierungs-Highlights
 - [ ] `CHANGELOG.md` dokumentiert den finalen Prototype-Stand und alle relevanten Änderungen
 - [ ] `HowtoSetup.md` enthält vollständige Setup-Anweisungen für localhost und Android-Mobile/Emulator
 - [ ] `app/README.md` und `app/src/main/cpp/README.md` bleiben konsistent zum Projektstand
+- [ ] alle Markdown-Dateien tragen dieselbe produktive Aussage über Diagnose-/Launcher-/Probe-Scope und keine Gameplay-Client-Fiktion
 
 ## 2) Technische Integrität
 
@@ -32,6 +33,7 @@ Vor jedem Android-Emulator-/Device-Run muss die lokale Basisvalidierung erfolgre
 - [ ] `std::mutex`-Sperren schützen Status, Event-Historie, Paketzähler und Summary-Extraktion
 - [ ] Loopback- und Remote-UDP-Pfade sind sauber getrennt und dokumentiert
 - [ ] keine unzusammenhängenden oder veralteten Build-/CI-Anweisungen im Repo
+- [ ] Paket-/Signal-Erkennung wird nur als Diagnose, nicht als spielerische Gameplay-Integration interpretiert
 
 ## 3) Funktionsprüfung
 
@@ -41,6 +43,7 @@ Vor jedem Android-Emulator-/Device-Run muss die lokale Basisvalidierung erfolgre
 - [ ] Event-Historie zeigt lesbare Paket- und Latenzereignisse an
 - [ ] Loopback-Testpfad bleibt stabil, auch ohne echte Remote-Serververbindung
 - [ ] Remote-UDP-Pfad kann bei bewusst konfiguriertem Remote-Target echte `sendto`/`recvfrom`-Flows ausführen
+- [ ] RakNet/Open:MP-Signal-Interpretation bleibt auf Diagnose-/Debugging-Ebene und wird nicht als gameplay-proof verwendet
 
 ## 4) Android-/Geräte-Ready (optional)
 
@@ -56,6 +59,7 @@ Vor jedem Android-Emulator-/Device-Run muss die lokale Basisvalidierung erfolgre
 - [ ] kein Secret, API-Key oder Token im Repository enthalten
 - [ ] Beispielbefehle enthalten keine realen Server- oder Produktivdaten
 - [ ] lokaler Proxy- und Build-Konfigurationen sind sauber dokumentiert und nachweisbar reproduzierbar
+- [ ] Produkt- und Rechts-Guardrails sind in den Dokumenten sichtbar: keine fake-Android-Client-Claims und keine unzulässige Darstellung als fertiger Open:MP-Mobile-Client
 
 ## 6) Release- und Abschlusskriterien
 
@@ -64,6 +68,7 @@ Vor jedem Android-Emulator-/Device-Run muss die lokale Basisvalidierung erfolgre
 - [ ] alle dokumentierten Checklisten und Setup-Anweisungen verifiziert
 - [ ] Release-Tag/Versionierung und Deployment-Schritt vorbereitet
 - [ ] Post-Release-Sanity-Checks durchgeführt
+- [ ] GitHub/Repo-Doku in allen Markdown-Dateien konsistent und finalisiert
 
 ## 7) Verwendete Referenzbefehle
 

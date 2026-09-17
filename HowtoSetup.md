@@ -194,7 +194,27 @@ In der App können Serverprofile mit Host/IP und Port konfiguriert werden, z. B.
 - Paketzähler, Latenz und TX/RX-Ratio verifizieren
 - Remote-Server-Infos mit `serverAddress`, `playerName` und `diagnostics` überprüfen
 
-## 12. Troubleshooting
+## 12. Aufgabenspezifische Checklisten
+
+### a) Dokumentationsstatus
+
+Vor jedem größeren Merge oder Release muss immer bestätigt sein:
+
+- die zentrale Projekt-Doku ist konsistent
+- die Module READMEs sind auf dem aktuellen Stand
+- die Release- und Gerätechecklisten sind synchron
+- das Produktbild bleibt auf Diagnose-/Probe-/Launcher-Scope und nicht auf Spiel-Client-Claims fixiert
+
+### b) Bindung an die tatsächliche Projektgrenze
+
+Die wichtigsten Projektschutzregeln sind:
+
+- keine falschen Behauptungen über einen fertigen Open:MP-Android-Client
+- keine Gameplay-Synchronisierung als „implementiert“ ausgeben
+- keine `omp-client.dll`-Portierung als Projektziel annehmen
+- Paketsignale nur als diagnostische Hinweise, nicht als Spielwelt-Status interpretieren
+
+## 13. Troubleshooting
 
 ### Gradle-Fehler / Resolver-Blockade
 
@@ -226,6 +246,6 @@ adb start-server
 - `adb devices -l` und `adb logcat` für Geräte-/Emulator-Fehler prüfen
 - optional: `./gradlew --no-daemon :app:assembleDebug --stacktrace` erneut ausführen
 
-## 13. Abschluss
+## 14. Abschluss
 
 Wenn die oben genannten Schritte in der jeweiligen Zielumgebung erfolgreich laufen, ist AndroidSA in einem vollständigen, dokumentierten und reproduzierbaren Zustand für lokale Entwicklung, native Host-Tests, optionalen Geräte-/Emulator-Checks und finale Release-Prüfung.

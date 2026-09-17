@@ -37,6 +37,7 @@ Kompakte Checkliste für einen stabilen Android-Geräte- oder lokalen Validierun
 - [ ] App auf Emulator/Device installiert, falls eine lokale Geräte-Verifikation gewünscht ist
 - [ ] lokale APK-Validierung kann ohne Main-CI-Dependency erfolgen
 - [ ] Haupt-Workflow bleibt auf native Host-Tests, JVM-Unit-Tests und Assemble fokussiert
+- [ ] Gerät-/Emulator-Lauf darf keine Projekt-Guardrails wie „wirklicher Android-Client“ oder „Open:MP gameplay port“ behaupten
 
 ## 5) Remote-Socket / Netzwerk-Szenario
 
@@ -44,6 +45,7 @@ Kompakte Checkliste für einen stabilen Android-Geräte- oder lokalen Validierun
 - [ ] Loopback-/Host-Test-Pfad bleibt stabil und unverändert
 - [ ] bei echter Remote-Verbindung: Zieladresse wird mit `getaddrinfo` korrekt aufgelöst
 - [ ] kein Test-/Produktionsregressionsfehler bei Loopback-Probing und Host-Tests
+- [ ] RakNet/Open:MP-Signale werden als Diagnose, nicht als Spielstatus interpretiert
 
 ## 6) Ergebnis und Abschluss
 
@@ -51,6 +53,7 @@ Kompakte Checkliste für einen stabilen Android-Geräte- oder lokalen Validierun
 - [ ] Logcat überprüft: keine kritischen Java/Kotlin-/Native-Fehler
 - [ ] Gerät-/Emulator-Lauf nur als optionale lokale Verifikation dokumentiert
 - [ ] PR-/CI-Status abgeschlossen, ohne offene Blocker
+- [ ] Dokumentationssatz und Scope-Beschreibung sind weiterhin konsistent
 
 ## 7) Kurzform für CI-Runner
 
