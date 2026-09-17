@@ -27,6 +27,8 @@ private const val MaxNativeRecentEvents = 48
 private fun requireExactValueCommand(sanitized: String, normalized: String, keyword: String, label: String): String {
     val separatorIndex = normalized.indexOf(':')
     require(separatorIndex != -1) { "$label command must include ':' separator" }
+    val prefix = sanitized.substring(0, separatorIndex).lowercase()
+    require(prefix == keyword) { "$label command keyword is invalid" }
     val keywordTail = normalized.substring(keyword.length, separatorIndex)
     require(keywordTail.isEmpty()) { "$label command keyword is invalid" }
     val value = sanitized.substring(separatorIndex + 1).trim()
@@ -50,34 +52,37 @@ internal fun requireValidNativeCommand(command: String): String {
 
     val normalized = sanitized.lowercase()
     when {
-        normalized.startsWith("transport") -> {
+        normalized in setOf("ping", "connect", "reconnect", "disconnect", "status", "reset") -> Unit
+        normalized.startsWith("transport:") -> {
             requireExactValueCommand(sanitized, normalized, "transport", "Transport")
         }
-        normalized == "diagnostics" || normalized.startsWith("diagnostics:") -> {
+        normalized.startsWith("diagnostics:") -> {
             requireExactValueCommand(sanitized, normalized, "diagnostics", "Diagnostics")
         }
-        normalized == "connect" -> Unit
         normalized.startsWith("connect:") -> {
             requireExactValueCommand(sanitized, normalized, "connect", "Connect")
         }
-        normalized == "player" || normalized.startsWith("player:") -> {
+        normalized.startsWith("player:") -> {
             requireExactValueCommand(sanitized, normalized, "player", "Player")
         }
-        normalized == "latency" || normalized.startsWith("latency:") -> {
+        normalized.startsWith("latency:") -> {
             val latencyValue = requireExactValueCommand(sanitized, normalized, "latency", "Latency")
             val latencyMs = latencyValue.toIntOrNull()
             require(latencyMs != null && latencyMs >= 0) {
                 "Latency command value must be a non-negative integer"
             }
         }
-        normalized == "fail" || normalized.startsWith("fail:") -> {
+        normalized.startsWith("fail:") -> {
             requireExactValueCommand(sanitized, normalized, "fail", "Fail")
         }
-        normalized == "simulate" || normalized.startsWith("simulate:") -> {
+        normalized.startsWith("simulate:") -> {
             val simulateValue = requireExactValueCommand(sanitized, normalized, "simulate", "Simulate")
             require(simulateValue.lowercase() in setOf("rx", "tx")) {
                 "Simulate command value must be rx or tx"
             }
+        }
+        else -> {
+            throw IllegalArgumentException("Unsupported native command: $sanitized")
         }
     }
     return sanitized
@@ -86,7 +91,19 @@ internal fun requireValidNativeCommand(command: String): String {
 internal fun parseNativeOverview(summary: String): NativeOverview {
     val rawSections = summary.split(NativeSummaryDelimiter)
     val sections = if (rawSections.size >= NativeSummaryFieldCount) {
-        rawSections.take(NativeSummaryFieldCount)
+        buildList {
+            add(rawSections[0])
+            add(rawSections[1])
+            add(rawSections[2])
+            if (rawSections.size == NativeSummaryFieldCount) {
+                add(rawSections[3])
+                addAll(rawSections.subList(4, rawSections.size))
+            } else {
+                val diagnosticsParts = rawSections.subList(3, rawSections.size - 7)
+                add(diagnosticsParts.joinToString(NativeSummaryDelimiter.toString()))
+                addAll(rawSections.subList(rawSections.size - 7, rawSections.size))
+            }
+        }
     } else {
         listOf(
             rawSections.getOrElse(0) { "" },

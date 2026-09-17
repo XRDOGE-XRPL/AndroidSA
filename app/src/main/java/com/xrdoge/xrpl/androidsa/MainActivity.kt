@@ -235,7 +235,7 @@ private fun AndroidSAApp() {
         selectedServerProfileId = profile.id
         serverAddressText = serverEndpoint(profile)
         if (pingOnly) {
-            dispatchPreset("connect:${serverEndpoint(profile)}")
+            dispatchPreset("ping")
             return
         }
         dispatchPreset("connect:${serverEndpoint(profile)}")
