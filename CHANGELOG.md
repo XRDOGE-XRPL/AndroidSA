@@ -90,3 +90,9 @@ Alle relevanten Änderungen dieses Projekts werden in dieser Datei dokumentiert.
 
 - Projekt-Doku und Release-Checklist auf den aktuellen Stand gebracht
 - UDP-Netzwerkmodi und Event-Historie dokumentiert
+
+### Validation
+
+- native Host-Tests über CMake/CTest erfolgreich validiert: Thread-Sicherheit und UDP-Loopback-Flow wurden verifiziert
+- JVM-Unit-Tests für `NativeBridge` und Android-Modell wurden auf den finalen Validierungspfad vorbereitet; im Sandbox-Umfeld bleibt der Gradle-Run wegen blockierter Google-Maven-Resolver-Auflösung weiterhin umgebungsabhängig
+- Repository-Status und Changelog wurden nach dem Validierungslauf konsolidiert, damit der aktuelle Branch in einem nachvollziehbaren, funktionalen Zustand bleibt
