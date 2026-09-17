@@ -1,5 +1,6 @@
 package com.xrdoge.xrpl.androidsa
 
+import android.content.Context
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import java.util.Locale
@@ -42,6 +43,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.withContext
 
 private const val MaxUiRecentEvents = 12
+private const val ServerProfilesPreferencesKey = "androidsa_server_profiles"
 
 private data class ServerProfile(
     val id: String,
@@ -60,6 +62,31 @@ private enum class ServerHealthStatus(val label: String) {
 }
 
 private fun serverEndpoint(profile: ServerProfile): String = "${profile.host}:${profile.port}"
+
+private fun loadStoredServerProfiles(context: Context): List<ServerProfile> {
+    val prefs = context.getSharedPreferences("androidsa_server_health", Context.MODE_PRIVATE)
+    val storedValue = prefs.getString(ServerProfilesPreferencesKey, null) ?: return DefaultServerProfiles
+    return storedValue.split(";\n").filter { it.isNotBlank() }.mapNotNull { entry ->
+        val parts = entry.split("|")
+        if (parts.size != 3) return@mapNotNull null
+        val label = parts[0].trim()
+        val host = parts[1].trim()
+        val port = parts[2].trim().toIntOrNull() ?: return@mapNotNull null
+        if (label.isEmpty() || host.isEmpty()) return@mapNotNull null
+        ServerProfile(
+            id = "$host:$port",
+            label = label,
+            host = host,
+            port = port,
+        )
+    }.ifEmpty { DefaultServerProfiles }
+}
+
+private fun persistServerProfiles(context: Context, profiles: List<ServerProfile>) {
+    val prefs = context.getSharedPreferences("androidsa_server_health", Context.MODE_PRIVATE)
+    val payload = profiles.joinToString(";\n") { profile -> "${profile.label}|${profile.host}|${profile.port}" }
+    prefs.edit().putString(ServerProfilesPreferencesKey, payload).apply()
+}
 
 private fun classifyServerHealth(profile: ServerProfile): ServerHealthStatus {
     val normalizedState = profile.lastState.lowercase()
@@ -136,8 +163,9 @@ private fun AndroidSAApp() {
     var transportText by remember { mutableStateOf("RakNet-compatible UDP") }
     var diagnosticsText by remember { mutableStateOf("Ready for manual diagnostics") }
     var latencyText by remember { mutableStateOf("48") }
-    var serverProfiles by remember { mutableStateOf(DefaultServerProfiles) }
-    var selectedServerProfileId by remember { mutableStateOf(DefaultServerProfiles.first().id) }
+    val context = androidx.compose.ui.platform.LocalContext.current
+    var serverProfiles by remember { mutableStateOf(loadStoredServerProfiles(context)) }
+    var selectedServerProfileId by remember { mutableStateOf(serverProfiles.firstOrNull()?.id ?: DefaultServerProfiles.first().id) }
     var newServerLabel by remember { mutableStateOf("Custom") }
     var newServerHost by remember { mutableStateOf("127.0.0.1") }
     var newServerPort by remember { mutableStateOf("7777") }
@@ -146,6 +174,9 @@ private fun AndroidSAApp() {
     var commandInFlight by remember { mutableStateOf<String?>(null) }
     val commandMutex = remember { Mutex() }
     val scope = rememberCoroutineScope()
+    LaunchedEffect(serverProfiles) {
+        persistServerProfiles(context, serverProfiles)
+    }
     val overview = snapshot.overview
     val txRxRatio = when {
         overview.packetsSent == 0 && overview.packetsReceived == 0 -> "0.00"
@@ -411,6 +442,7 @@ private fun AndroidSAApp() {
                             }
                             selectedServerProfileId = newProfile.id
                             serverAddressText = serverEndpoint(newProfile)
+                            persistServerProfiles(context, serverProfiles)
                         },
                     ) {
                         Text("Add server profile")
