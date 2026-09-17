@@ -36,6 +36,41 @@ private fun requireExactValueCommand(sanitized: String, normalized: String, keyw
     return value
 }
 
+private fun canonicalizeNativeCommand(sanitized: String, normalized: String): String {
+    return when {
+        normalized in setOf("ping", "connect", "reconnect", "disconnect", "status", "reset") -> normalized
+        normalized.startsWith("transport:") -> {
+            val value = requireExactValueCommand(sanitized, normalized, "transport", "Transport")
+            "transport:$value"
+        }
+        normalized.startsWith("diagnostics:") -> {
+            val value = requireExactValueCommand(sanitized, normalized, "diagnostics", "Diagnostics")
+            "diagnostics:$value"
+        }
+        normalized.startsWith("connect:") -> {
+            val value = requireExactValueCommand(sanitized, normalized, "connect", "Connect")
+            "connect:$value"
+        }
+        normalized.startsWith("player:") -> {
+            val value = requireExactValueCommand(sanitized, normalized, "player", "Player")
+            "player:$value"
+        }
+        normalized.startsWith("latency:") -> {
+            val value = requireExactValueCommand(sanitized, normalized, "latency", "Latency")
+            "latency:$value"
+        }
+        normalized.startsWith("fail:") -> {
+            val value = requireExactValueCommand(sanitized, normalized, "fail", "Fail")
+            "fail:$value"
+        }
+        normalized.startsWith("simulate:") -> {
+            val value = requireExactValueCommand(sanitized, normalized, "simulate", "Simulate")
+            "simulate:$value"
+        }
+        else -> sanitized
+    }
+}
+
 internal fun requireValidNativeCommand(command: String): String {
     require(command.none { it.code < 0x20 || it.code == 0x7F }) {
         "Command must not contain control characters"
@@ -85,7 +120,7 @@ internal fun requireValidNativeCommand(command: String): String {
             throw IllegalArgumentException("Unsupported native command: $sanitized")
         }
     }
-    return sanitized
+    return canonicalizeNativeCommand(sanitized, normalized)
 }
 
 internal fun parseNativeOverview(summary: String): NativeOverview {
