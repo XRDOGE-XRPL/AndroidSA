@@ -1,6 +1,24 @@
 # AndroidSA
 
-AndroidSA ist ein Android-Prototyp für einen SA:MP-/Open:MP-orientierten Client. Das Repository verbindet eine moderne Jetpack-Compose-Oberfläche mit einer Kotlin/JNI-Brücke und einem nativen C++20-Kern, um Verbindungsstatus, Serverprofile, Diagnosemeldungen, Laufzeitstatistiken, Event-Historie und echte UDP-Probe-Flows in einer klaren, testbaren Architektur zu modellieren.
+AndroidSA ist ein Android-Prototyp für eine SA:MP-/Open:MP-orientierte Diagnose-, Probe- und Launcher-Schicht. Das Repository verbindet eine moderne Jetpack-Compose-Oberfläche mit einer Kotlin/JNI-Brücke und einem nativen C++20-Kern, um Verbindungsstatus, Serverprofile, Diagnosemeldungen, Laufzeitstatistiken, Event-Historie und echte UDP-Probe-Flows in einer klaren, testbaren Architektur zu modellieren.
+
+## Realistischer Projektumfang
+
+AndroidSA ist bewusst keine fertige GTA-SA-Mobile-Gameplay-Integration und kein behaupteter Open:MP-Android-Client. Der Fokus liegt auf:
+
+- Serverliste, Ping, Query-/Probe-Status und Verbindungsdiagnostik
+- UDP-/Network-Analyse, Paketzähler, RPC-/Wrapper-Erkennung und Laufzeitlogs
+- Launcher-/Status-UI als echte Diagnose- und Betriebsoberfläche
+
+Nicht im Scope sind:
+
+- echtes Joinen in eine Spielwelt mit Synchronisierung
+- RenderWare- oder GTA-SA-Mobile-Gameplay-Injektion
+- Portierung von `omp-client.dll` oder PC-GTA-SA-Assets auf Android
+- der Anspruch, Open:MP selbst sei ein fertiger Handy-Client
+
+Open:MP bleibt ein Server-/Launcher- und PC-Ökosystem; AndroidSA modelliert die diagnostische Server-/Netzwerk-Seite, nicht ein vollständiges Spiel-Client-Backend.
+
 
 ## Projektstatus
 

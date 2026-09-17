@@ -4,7 +4,23 @@ Das Modul `app` enthält die vollständige Android-Anwendung. Hier laufen Compos
 
 ## Modulzweck
 
-Das App-Modul dient als Android-Hülle für den nativen AndroidSA-Clientzustand. Es zeigt Runtime-Daten an, validiert Nutzerkommandos vor dem JNI-Aufruf und synchronisiert UI-Eingaben mit dem Snapshot aus dem nativen Layer.
+Das App-Modul dient als Android-Hülle für den nativen AndroidSA-Diagnose-/Serverstatus-Zustand. Es zeigt Runtime-Daten an, validiert Nutzerkommandos vor dem JNI-Aufruf und synchronisiert UI-Eingaben mit dem Snapshot aus dem nativen Layer.
+
+## Produktgrenzen und realistischer Scope
+
+Das Modul ist bewusst keine GTA-SA-Mobile-Spielclient-Implementierung. Es ist eine Server-/Status-/Launcher-Schicht für:
+
+- Serverprobe, Ping und Query-ähnliche Verbindungschecks
+- Paket-/RPC-/Wrapper-Analyse
+- Event-History, Laufzeit-Status und Diagnoseausgaben
+
+Es ist nicht vorgesehen für:
+
+- echtes Joinen in eine Laufzeitwelt mit Gameplay-Sync
+- RenderWare- oder Mobile-Game-Integration
+- Anbieten eines fertigen Open:MP-Android-Clients
+
+Eine echte mobile Multiplayer-Variante braucht ein separates, legales Projekt auf Basis von GTA SA Mobile mit eigener MP-Schicht; AndroidSA bleibt in dieser Sicht die diagnostische und launcherartige Vorstufe.
 
 ## Inhalt
 

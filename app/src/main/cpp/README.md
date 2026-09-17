@@ -2,6 +2,18 @@
 
 Der Ordner `app/src/main/cpp` enthält den nativen Kern von AndroidSA. Hier liegen JNI-Einstiegspunkte, Logging, Zustandsverwaltung, UDP-Probing und native Host-Tests.
 
+## Umfang und reale Grenzen
+
+Der native Layer arbeitet bewusst auf der Ebene von Diagnose, Status und Server-/Netzwerk-Interaktion. Er kann:
+
+- UDP-Probes, Ping- und Connect-Checks simulieren
+- Paket- und RPC-Wrapper-Flüsse analysieren
+- Event-History und Laufzeitstatus für UI und Debugging bereitstellen
+
+Er ist nicht dafür vorgesehen, ein echtes GTA-SA-Mobile-Spiel-Binary zu injizieren oder eine fertige Open:MP-Android-Gameplay-Schicht zu liefern. AndroidSA modelliert also die diagnostische und launcherartige Server-/Netzwerk-Seite, nicht den vollständigen Spielclient.
+
+Open:MP bleibt im realen Stack ein PC-/Server- und Launcher-Ökosystem. Eine legale Android-Variante würde ein eigenständiges Projekt mit eigener GTA-SA-Mobile-MP-Schicht erfordern.
+
 ## Bestandteile
 
 - `CMakeLists.txt`  
