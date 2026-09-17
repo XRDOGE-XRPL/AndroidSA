@@ -235,6 +235,18 @@ ANDROIDSA_GOOGLE_MAVEN_URL=http://127.0.0.1:38473/ ./gradlew --no-daemon :app:te
 ./gradlew --no-daemon check build --stacktrace
 ```
 
+Alternativ ist im Root-Projekt ein dedizierter Release-Validierungs-Task verfügbar:
+
+```bash
+./gradlew --no-daemon releaseValidation --stacktrace
+```
+
+Dieser Task kapselt die produktive CI-Reihenfolge mit nativen Host-Tests, JVM-Unit-Tests und finalem Assemble-Pfad. Für die reine Native-Prüfung ist ebenfalls ein Root-Task verfügbar:
+
+```bash
+./gradlew --no-daemon nativeHostCheck --stacktrace
+```
+
 Oder in der finalen, stabilen CI-ähnlichen Reihenfolge:
 
 ```bash
