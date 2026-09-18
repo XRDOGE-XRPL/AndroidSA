@@ -365,6 +365,55 @@ private val RakNetSignals = listOf(
     RakNetSignal("0x7d", "Open:MP / SA:MP RPC wrapper", "RPC payload wrapper for protocol inspection"),
 )
 
+private data class ProtocolInsight(
+    val title: String,
+    val value: String,
+    val description: String,
+    val ready: Boolean,
+)
+
+private fun buildProtocolInsights(recentEvents: List<String>): List<ProtocolInsight> {
+    val eventText = recentEvents.joinToString("\n").lowercase(Locale.US)
+    val observedSignals = listOf("0x00", "0x1c", "0x1d", "0x7d").filter { eventText.contains(it.lowercase(Locale.US)) }
+    val handshakeActive = eventText.contains("connected ping") || eventText.contains("open connection request") || eventText.contains("handshake")
+    val replyActive = eventText.contains("open connection reply") || eventText.contains("reply") || eventText.contains("0x1d")
+    val payloadActive = eventText.contains("rpc wrapper") || eventText.contains("payload") || eventText.contains("0x7d")
+    val captureActive = eventText.contains("stream") || eventText.contains("capture") || eventText.contains("screen") || eventText.contains("projection")
+
+    return listOf(
+        ProtocolInsight(
+            title = "Packet fingerprint",
+            value = if (observedSignals.isEmpty()) "idle" else observedSignals.joinToString(" / "),
+            description = "Observed RakNet/Open:MP markers in the local host diagnostics stream.",
+            ready = observedSignals.isNotEmpty(),
+        ),
+        ProtocolInsight(
+            title = "Handshake state",
+            value = if (handshakeActive) "in progress" else "waiting",
+            description = "RakNet handshake detection is emphasizing connection start and ping activity.",
+            ready = handshakeActive,
+        ),
+        ProtocolInsight(
+            title = "Reply state",
+            value = if (replyActive) "replied" else "waiting",
+            description = "Server response monitoring is watching for connection accept and negotiation replies.",
+            ready = replyActive,
+        ),
+        ProtocolInsight(
+            title = "Payload / RPC state",
+            value = if (payloadActive) "wrapped" else "quiet",
+            description = "Open:MP / SA:MP wrapper inspection is active as a diagnostic signal layer.",
+            ready = payloadActive,
+        ),
+        ProtocolInsight(
+            title = "Local capture state",
+            value = if (captureActive) "active" else "idle",
+            description = "Host-side capture and runtime state feedback stay inside the local diagnostics model.",
+            ready = captureActive,
+        ),
+    )
+}
+
 private val InitialOverview = NativeOverview(
     clientName = "AndroidSA",
     transport = "loading",
@@ -754,6 +803,38 @@ private fun AndroidSAApp() {
                             style = MaterialTheme.typography.labelMedium,
                             fontWeight = FontWeight.Bold,
                         )
+                    }
+                }
+            }
+            SectionCard(title = "RakNet / Open:MP protocol intelligence") {
+                val protocolInsights = buildProtocolInsights(snapshot.recentEvents)
+                protocolInsights.forEach { insight ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(10.dp)
+                                .background(if (insight.ready) Color(0xFF2E7D32) else Color(0xFF616161)),
+                        )
+                        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                            Text(
+                                text = insight.title,
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.SemiBold,
+                            )
+                            Text(
+                                text = insight.value,
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.Medium,
+                            )
+                            Text(
+                                text = insight.description,
+                                style = MaterialTheme.typography.bodySmall,
+                            )
+                        }
                     }
                 }
             }
