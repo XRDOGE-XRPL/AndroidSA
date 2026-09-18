@@ -17,12 +17,26 @@ data class GtaRuntimeStatus(
 
 object GtaPackageDetector {
     const val PACKAGE_OVERRIDE_KEY = "androidsa.gta.runtime.package_override"
+    const val OFFICIAL_PACKAGE = "com.rockstargames.gtasager"
+    const val OFFICIAL_VERSION = "2.11.277"
 
     val defaultPackages: List<String> = listOf(
-        "com.rockstargames.gtasager",
+        OFFICIAL_PACKAGE,
+        "com.rockstargames.gtasasa",
         "com.rockstargames.gtasa",
         "com.rockstargames.gtasa.de",
     )
+
+    private fun runtimeState(installed: Boolean, launchable: Boolean): String = when {
+        !installed -> "missing-host"
+        !launchable -> "blocked"
+        else -> "runtime-ready"
+    }
+
+    private fun matchesOfficialRuntimeVersion(versionName: String?): Boolean {
+        val normalized = versionName.orEmpty().lowercase()
+        return normalized.contains(OFFICIAL_VERSION) || normalized.contains("211277")
+    }
 
     fun configuredPackages(context: Context): List<String> {
         val prefs = context.getSharedPreferences(RuntimePreferencesName, Context.MODE_PRIVATE)
@@ -41,16 +55,20 @@ object GtaPackageDetector {
                 val packageManager = context.packageManager
                 val packageInfo = packageManager.getPackageInfo(packageName, 0)
                 val launchIntent = packageManager.getLaunchIntentForPackage(packageName)
+                val versionName = packageInfo.versionName ?: "unknown"
+                val officialRuntime = matchesOfficialRuntimeVersion(versionName)
+                val state = runtimeState(installed = true, launchable = launchIntent != null)
                 return GtaRuntimeStatus(
                     packageName = packageName,
-                    versionName = packageInfo.versionName ?: "unknown",
+                    versionName = versionName,
                     installed = true,
                     launchable = launchIntent != null,
-                    state = if (launchIntent != null) "DETECTED" else "RUNNING_UNKNOWN",
+                    state = state,
                     summary = if (launchIntent != null) {
-                        "GTA SA Mobile runtime detected and launchable on this device (version ${packageInfo.versionName ?: "unknown"})."
+                        val runtimeDescriptor = if (officialRuntime) "official" else "compatible"
+                        "GTA SA Mobile $runtimeDescriptor runtime detected and launchable on this device (version $versionName)."
                     } else {
-                        "GTA SA Mobile runtime is installed but has no launch intent (version ${packageInfo.versionName ?: "unknown"})."
+                        "GTA SA Mobile runtime is installed but blocked from launch on this device (version $versionName)."
                     },
                 )
             } catch (_: Exception) {
@@ -64,8 +82,8 @@ object GtaPackageDetector {
             versionName = "missing",
             installed = false,
             launchable = false,
-            state = "NOT_INSTALLED",
-            summary = "GTA SA Mobile runtime is not installed on this device. Install the app from the Play Store, then start the local runtime from AndroidSA.",
+            state = runtimeState(installed = false, launchable = false),
+            summary = "GTA SA Mobile runtime is not installed on this device. Install the official app from the Play Store, then start the local runtime from AndroidSA.",
         )
     }
 

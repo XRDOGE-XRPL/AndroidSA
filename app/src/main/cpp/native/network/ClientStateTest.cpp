@@ -35,6 +35,22 @@ bool expect(bool condition, const char* message) {
 int main() {
     androidsa::network::ClientState state;
 
+    for (int stressIndex = 0; stressIndex < 200; ++stressIndex) {
+        const auto command = stressIndex % 2 == 0 ? "simulate:tx" : "simulate:rx";
+        if (!expect(state.dispatchCommand(command), "Stress loop should accept repeated traffic probes")) {
+            return 1;
+        }
+        if (!expect(state.dispatchCommand("status"), "Stress loop should allow status refreshes")) {
+            return 1;
+        }
+        if (!expect(state.dispatchCommand("protocol:status"), "Stress loop should allow protocol diagnostics")) {
+            return 1;
+        }
+        if (!expect(state.dispatchCommand("stream:info"), "Stress loop should allow stream diagnostics")) {
+            return 1;
+        }
+    }
+
     if (!expect(state.dispatchCommand("player:CJ"), "Expected player command to succeed")) {
         return 1;
     }

@@ -3,6 +3,21 @@ pluginManagement {
         val androidSaGoogleMavenUrl = providers.gradleProperty("androidsa.google.maven.url")
             .orElse(providers.environmentVariable("ANDROIDSA_GOOGLE_MAVEN_URL"))
             .orNull
+        val androidSaLocalMavenRepo = providers.gradleProperty("androidsa.local.maven.repo")
+            .orElse(providers.environmentVariable("ANDROIDSA_LOCAL_MAVEN_REPO"))
+            .orNull
+
+        if (!androidSaLocalMavenRepo.isNullOrBlank()) {
+            maven(url = uri(androidSaLocalMavenRepo)) {
+                name = "AndroidSaLocalMavenRepo"
+                content {
+                    includeGroupByRegex("androidx.*")
+                    includeGroupByRegex("com\\.android.*")
+                    includeGroupByRegex("com\\.google.*")
+                }
+            }
+        }
+
         if (androidSaGoogleMavenUrl.isNullOrBlank()) {
             google {
                 content {
@@ -22,6 +37,7 @@ pluginManagement {
                 }
             }
         }
+        mavenLocal()
         mavenCentral()
         gradlePluginPortal()
     }
@@ -33,6 +49,21 @@ dependencyResolutionManagement {
         val androidSaGoogleMavenUrl = providers.gradleProperty("androidsa.google.maven.url")
             .orElse(providers.environmentVariable("ANDROIDSA_GOOGLE_MAVEN_URL"))
             .orNull
+        val androidSaLocalMavenRepo = providers.gradleProperty("androidsa.local.maven.repo")
+            .orElse(providers.environmentVariable("ANDROIDSA_LOCAL_MAVEN_REPO"))
+            .orNull
+
+        if (!androidSaLocalMavenRepo.isNullOrBlank()) {
+            maven(url = uri(androidSaLocalMavenRepo)) {
+                name = "AndroidSaLocalMavenRepo"
+                content {
+                    includeGroupByRegex("androidx.*")
+                    includeGroupByRegex("com\\.android.*")
+                    includeGroupByRegex("com\\.google.*")
+                }
+            }
+        }
+
         if (androidSaGoogleMavenUrl.isNullOrBlank()) {
             google {
                 content {
@@ -52,6 +83,7 @@ dependencyResolutionManagement {
                 }
             }
         }
+        mavenLocal()
         mavenCentral()
     }
 }

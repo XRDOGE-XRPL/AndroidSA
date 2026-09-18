@@ -9,7 +9,7 @@ AndroidSA ist eine Android-Launcher- und Diagnose-Schicht für die lokal install
 Der aktuelle Scope ist klar eingegrenzt:
 
 - Phase 1: Host-Erkennung und Launch der lokalen GTA-SA-Mobile-Laufzeit auf demselben Gerät
-- Manifest-Queries nur für `com.rockstargames.gtasager`, `com.rockstargames.gtasa` und `com.rockstargames.gtasa.de`
+- Manifest-Queries nur für `com.rockstargames.gtasager`, `com.rockstargames.gtasasa`, `com.rockstargames.gtasa` und `com.rockstargames.gtasa.de`
 - `GtaPackageDetector` prüft Installationsstatus, Version und Launch-Intent
 - `stream:info` meldet Paket-/Launch-/Runtime-Status, aber keine Join-/Gameplay-Logik
 - Phase 2 bleibt auf lokale Capture-/Surface-/Stream-Diagnostik begrenzt
@@ -45,7 +45,7 @@ Open:MP bleibt ein Server-/Launcher- und PC-Ökosystem; AndroidSA modelliert die
 AndroidSA verfolgt eine klare Reihenfolge, damit die Projektgrenze nicht verwässert wird:
 
 1. Detect + Launch
-   - Paketliste konfigurierbar, default `com.rockstargames.gtasager`, `com.rockstargames.gtasa` und `com.rockstargames.gtasa.de`.
+   - Paketliste konfigurierbar, default `com.rockstargames.gtasager`, `com.rockstargames.gtasasa`, `com.rockstargames.gtasa` und `com.rockstargames.gtasa.de`.
    - Android manifest queries zeigen die Host-Apps sichtbar an, und der Launcher prüft Installationsstatus, Version und Start-Intent.
    - Wenn die GTA-App fehlt, wird eine klare Meldung ausgegeben; kein Fake-Stream und keine Fake-Laufzeit.
 

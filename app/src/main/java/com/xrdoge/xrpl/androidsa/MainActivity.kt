@@ -92,6 +92,18 @@ private data class GtaConnectionRouteStep(
     val ready: Boolean,
 )
 
+private fun runtimeHealthState(gtaStatus: GtaRuntimeStatus): String = when {
+    !gtaStatus.installed -> "missing-host"
+    !gtaStatus.launchable -> "blocked"
+    else -> "runtime-ready"
+}
+
+private fun runtimeDashboardMessage(gtaStatus: GtaRuntimeStatus): String = when {
+    !gtaStatus.installed -> "Host missing: GTA SA Mobile is not installed on this device."
+    !gtaStatus.launchable -> "Host detected but launch intent is unavailable."
+    else -> "Host runtime is ready and launchable on this device."
+}
+
 private fun buildGtaConnectionRoute(
     gtaStatus: GtaRuntimeStatus,
     streamState: String,
@@ -102,19 +114,23 @@ private fun buildGtaConnectionRoute(
     return listOf(
         GtaConnectionRouteStep(
             label = "Local device",
-            status = if (hostReady) "ready" else "awaiting",
+            status = when {
+                !gtaStatus.installed -> "missing-host"
+                !gtaStatus.launchable -> "blocked"
+                else -> "runtime-ready"
+            },
             detail = "Android runtime host visible on this device",
             ready = hostReady,
         ),
         GtaConnectionRouteStep(
             label = "GTA SA Mobile host",
-            status = gtaStatus.state,
+            status = runtimeHealthState(gtaStatus),
             detail = gtaStatus.summary,
             ready = gtaStatus.installed,
         ),
         GtaConnectionRouteStep(
             label = "Launch probe",
-            status = if (gtaStatus.launchable) "launchable" else "blocked",
+            status = if (gtaStatus.launchable) "runtime-ready" else "blocked",
             detail = if (gtaStatus.launchable) "Launch intent available" else "No launch intent or runtime missing",
             ready = gtaStatus.launchable,
         ),
@@ -132,28 +148,32 @@ private fun runtimeRouteSummary(
     streamState: String,
     streamSurfaceReady: Boolean,
 ): String {
+    val runtimeState = runtimeHealthState(gtaStatus)
     val streamReady = streamState in listOf("live", "paused", "starting") || streamSurfaceReady
     return when {
-        !gtaStatus.installed -> "Host missing: GTA SA Mobile is not installed on this device."
-        !gtaStatus.launchable -> "Host detected but launch intent is unavailable."
-        !streamReady -> "Host is ready; waiting for the local diagnostics stream to become active."
+        runtimeState == "missing-host" -> "Host missing: GTA SA Mobile is not installed on this device."
+        runtimeState == "blocked" -> "Host detected but launch intent is unavailable."
+        !streamReady -> "Host is runtime-ready; waiting for the local diagnostics stream to become active."
         else -> "Route ready: local host detected, launchable, and diagnostics stream active."
     }
 }
+
+private fun safeRuntimePath(value: String?, fallback: String = "unavailable"): String =
+    value?.takeIf { it.isNotBlank() } ?: fallback
 
 private fun runtimePathEntries(context: Context, packageName: String): List<GtaRuntimePathEntry> {
     return try {
         val pm = context.packageManager
         val pkg = pm.getPackageInfo(packageName, 0)
         val appInfo = pkg.applicationInfo ?: return emptyList()
-        val dataDir = appInfo.dataDir ?: "unknown"
-        val cacheDir = context.cacheDir?.absolutePath ?: "unknown"
-        val obbDir = context.obbDir?.absolutePath ?: "unknown"
-        val externalDir = context.getExternalFilesDir(null)?.absolutePath ?: "unknown"
-        val nativeDir = appInfo.nativeLibraryDir ?: "unknown"
+        val dataDir = safeRuntimePath(appInfo.dataDir)
+        val cacheDir = safeRuntimePath(context.cacheDir?.absolutePath)
+        val obbDir = safeRuntimePath(context.obbDir?.absolutePath)
+        val externalDir = runCatching { context.getExternalFilesDir(null)?.absolutePath }.getOrNull()?.let { safeRuntimePath(it) } ?: "unavailable"
+        val nativeDir = safeRuntimePath(appInfo.nativeLibraryDir)
         listOf(
             GtaRuntimePathEntry("Package", packageName),
-            GtaRuntimePathEntry("Source", appInfo.sourceDir ?: "unknown"),
+            GtaRuntimePathEntry("Source", safeRuntimePath(appInfo.sourceDir)),
             GtaRuntimePathEntry("Data", dataDir),
             GtaRuntimePathEntry("Native libs", nativeDir),
             GtaRuntimePathEntry("Cache", cacheDir),
@@ -683,6 +703,23 @@ private fun AndroidSAApp() {
             diagnosticsText = newSnapshot.overview.diagnostics
             latencyText = newSnapshot.overview.latencyMs.toString()
         }
+        val state = runtimeHealthState(gtaRuntimeStatus)
+        val dashboardMessage = runtimeDashboardMessage(gtaRuntimeStatus)
+        when {
+            state == "missing-host" -> {
+                diagnosticsText = dashboardMessage
+            }
+            state == "blocked" -> {
+                diagnosticsText = dashboardMessage
+            }
+            state == "runtime-ready" -> {
+                diagnosticsText = if (newSnapshot.overview.diagnostics.isNotBlank()) {
+                    newSnapshot.overview.diagnostics
+                } else {
+                    dashboardMessage
+                }
+            }
+        }
     }
 
     fun applyLocalError(message: String) {
@@ -789,6 +826,19 @@ private fun AndroidSAApp() {
         } finally {
             isLoading = false
         }
+    }
+
+    LaunchedEffect(gtaRuntimeStatus.state) {
+        val state = gtaRuntimeStatus.state
+        val message = runtimeDashboardMessage(gtaRuntimeStatus)
+        val runtimeStatusSnapshot = snapshot.copy(
+            overview = snapshot.overview.copy(
+                connectionState = state,
+                diagnostics = if (snapshot.overview.diagnostics.isBlank()) message else snapshot.overview.diagnostics,
+            ),
+            recentEvents = listOf(message) + snapshot.recentEvents,
+        )
+        applySnapshot(runtimeStatusSnapshot, syncInputs = false)
     }
 
     val shouldAutoRefreshMetrics = overview.connectionState.equals("connected", ignoreCase = true)
@@ -1038,13 +1088,35 @@ private fun AndroidSAApp() {
                     ActionButton(label = "Detect host", enabled = !isBusy) {
                         val detected = detectGtaRuntime(context)
                         gtaRuntimeStatus = detected
-                        applyLocalError("Host detection: ${detected.packageName} (${detected.state})")
+                        val hostMessage = runtimeDashboardMessage(detected)
+                        applySnapshot(
+                            snapshot.copy(
+                                overview = snapshot.overview.copy(
+                                    connectionState = detected.state,
+                                    diagnostics = hostMessage,
+                                ),
+                                recentEvents = listOf(hostMessage) + snapshot.recentEvents,
+                            ),
+                            syncInputs = false,
+                        )
                     }
                     ActionButton(label = "Open runtime", enabled = !isBusy && gtaRuntimeStatus.launchable) {
                         val launched = launchGtaRuntime(context)
                         gtaRuntimeStatus = detectGtaRuntime(context)
+                        val hostMessage = runtimeDashboardMessage(gtaRuntimeStatus)
                         if (!launched) {
                             applyLocalError("GTA SA Mobile launch intent is unavailable on this device")
+                        } else {
+                            applySnapshot(
+                                snapshot.copy(
+                                    overview = snapshot.overview.copy(
+                                        connectionState = gtaRuntimeStatus.state,
+                                        diagnostics = hostMessage,
+                                    ),
+                                    recentEvents = listOf(hostMessage) + snapshot.recentEvents,
+                                ),
+                                syncInputs = false,
+                            )
                         }
                     }
                 }
