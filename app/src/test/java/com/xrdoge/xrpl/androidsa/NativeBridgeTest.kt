@@ -148,6 +148,13 @@ class NativeBridgeTest {
     }
 
     @Test
+    fun gtaPackageDetectorPrefersOfficialGtaSaPackage() {
+        assertEquals("com.rockstargames.gtasager", GtaPackageDetector.defaultPackages.first())
+        assertTrue(GtaPackageDetector.defaultPackages.contains("com.rockstargames.gtasa"))
+        assertTrue(GtaPackageDetector.defaultPackages.contains("com.rockstargames.gtasa.de"))
+    }
+
+    @Test
     fun requireValidNativeCommandTrimsInput() {
         assertEquals("ping", requireValidNativeCommand("  ping  "))
     }

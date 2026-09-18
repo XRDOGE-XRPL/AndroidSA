@@ -513,7 +513,7 @@ bool ClientState::dispatchCommand(const std::string& command) {
         if (action == "start") {
             if (!gtaRuntimeAvailable_) {
                 state_ = "error";
-                diagnostics_ = "GTA SA Mobile runtime missing; install com.rockstargames.gtasa or com.rockstargames.gtasa.de from the Play Store";
+                diagnostics_ = "GTA SA Mobile runtime missing; install com.rockstargames.gtasager, com.rockstargames.gtasa, or com.rockstargames.gtasa.de from the Play Store";
                 eventMessage = "Stream start blocked because the GTA SA Mobile runtime is not installed";
             } else {
                 streamState_ = "running";

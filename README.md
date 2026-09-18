@@ -27,7 +27,7 @@ Open:MP bleibt ein Server-/Launcher- und PC-Ökosystem; AndroidSA modelliert die
 AndroidSA verfolgt eine klare Reihenfolge, damit die Projektgrenze nicht verwässert wird:
 
 1. Detect + Launch
-   - Paketliste konfigurierbar, default `com.rockstargames.gtasa` und `com.rockstargames.gtasa.de`.
+   - Paketliste konfigurierbar, default `com.rockstargames.gtasager`, `com.rockstargames.gtasa` und `com.rockstargames.gtasa.de`.
    - Android manifest queries zeigen die Host-Apps sichtbar an, und der Launcher prüft Installationsstatus, Version und Start-Intent.
    - Wenn die GTA-App fehlt, wird eine klare Meldung ausgegeben; kein Fake-Stream und keine Fake-Laufzeit.
 

@@ -6,7 +6,7 @@ Alle relevanten Änderungen dieses Projekts werden in dieser Datei dokumentiert.
 
 ### Added
 
-- Host-Detection für die lokal installierte GTA-SA-Mobile-Laufzeit mit konfigurierbarer Paketliste (`com.rockstargames.gtasa`, `com.rockstargames.gtasa.de`)
+- Host-Detection für die lokal installierte GTA-SA-Mobile-Laufzeit mit konfigurierbarer Paketliste (`com.rockstargames.gtasager`, `com.rockstargames.gtasa`, `com.rockstargames.gtasa.de`)
 - Android-Manifest-Queries für die GTA-Host-Packages
 - Stream-Lifecycle-Commands `stream:start`, `stream:stop`, `stream:pause`, `stream:info` und `stream:source:<package>`
 - klare Naht-B-Scope-Hinweise: AndroidSA startet und beobachtet den lokalen GTA-SA-Mobile-Host, aber kein spielbarer Online-Client
@@ -19,7 +19,7 @@ Alle relevanten Änderungen dieses Projekts werden in dieser Datei dokumentiert.
 
 ### Fixed
 
-- veraltete Paket-ID `com.rockstargames.gtasager` aus dem Host-/Launch-Flow durch die konfigurierbaren GTA-SA-Pakete ersetzt
+- offizielle GTA-SA-Mobile-Paket-ID `com.rockstargames.gtasager` als Priorität im Host-/Launch-Flow ergänzt und mit den kompatiblen GTA-SA-Paketen `gtasa`/`gtasa.de` abgeglichen
 - Stream-Command-Validierung auf `pause` und `source:<package>` erweitert
 - Dokumentation auf die Naht-B-Grenze „Host runtime first, gameplay logic later“ synchronisiert
 

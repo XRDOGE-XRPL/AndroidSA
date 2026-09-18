@@ -47,86 +47,17 @@ import kotlinx.coroutines.withContext
 
 private const val MaxUiRecentEvents = 12
 private const val ServerProfilesPreferencesKey = "androidsa_server_profiles"
-private const val GtaRuntimePackageOverrideKey = "androidsa.gta.runtime.package_override"
-private val DefaultGtaRuntimePackages = listOf(
-    "com.rockstargames.gtasa",
-    "com.rockstargames.gtasa.de",
-)
+private const val GtaRuntimePackageOverrideKey = GtaPackageDetector.PACKAGE_OVERRIDE_KEY
+private val DefaultGtaRuntimePackages = GtaPackageDetector.defaultPackages
 
-private fun configuredGtaRuntimePackages(context: Context): List<String> {
-    val prefs = context.getSharedPreferences("androidsa_runtime", Context.MODE_PRIVATE)
-    val overridePackages = prefs.getString(GtaRuntimePackageOverrideKey, null)
-        ?.split(',')
-        ?.map { it.trim() }
-        ?.filter { it.isNotEmpty() }
-        ?.distinct()
-    return if (!overridePackages.isNullOrEmpty()) overridePackages else DefaultGtaRuntimePackages
-}
+private fun configuredGtaRuntimePackages(context: Context): List<String> =
+    GtaPackageDetector.configuredPackages(context)
 
-private data class GtaRuntimeStatus(
-    val packageName: String,
-    val versionName: String,
-    val installed: Boolean,
-    val launchable: Boolean,
-    val state: String,
-    val summary: String,
-)
+private fun detectGtaRuntime(context: Context): GtaRuntimeStatus =
+    GtaPackageDetector.detect(context)
 
-private fun detectGtaRuntime(context: Context): GtaRuntimeStatus {
-    val packageCandidates = configuredGtaRuntimePackages(context)
-    for (packageName in packageCandidates) {
-        try {
-            val packageManager = context.packageManager
-            val packageInfo = packageManager.getPackageInfo(packageName, 0)
-            val launchIntent = packageManager.getLaunchIntentForPackage(packageName)
-            return GtaRuntimeStatus(
-                packageName = packageName,
-                versionName = packageInfo.versionName ?: "unknown",
-                installed = true,
-                launchable = launchIntent != null,
-                state = if (launchIntent != null) "DETECTED" else "RUNNING_UNKNOWN",
-                summary = if (launchIntent != null) {
-                    "GTA SA Mobile runtime detected and launchable on this device (version ${packageInfo.versionName ?: "unknown"})."
-                } else {
-                    "GTA SA Mobile runtime is installed but has no launch intent (version ${packageInfo.versionName ?: "unknown"})."
-                },
-            )
-        } catch (_: Exception) {
-            // fall through to the next candidate package
-        }
-    }
-
-    val fallbackPackage = packageCandidates.firstOrNull() ?: DefaultGtaRuntimePackages.first()
-    return GtaRuntimeStatus(
-        packageName = fallbackPackage,
-        versionName = "missing",
-        installed = false,
-        launchable = false,
-        state = "NOT_INSTALLED",
-        summary = "GTA SA Mobile runtime is not installed on this device. Install the app, then start the local runtime from AndroidSA.",
-    )
-}
-
-private fun launchGtaRuntime(context: Context): Boolean {
-    val runtimeStatus = detectGtaRuntime(context)
-    if (!runtimeStatus.installed) {
-        val storeIntent = Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=${runtimeStatus.packageName}"))
-        return try {
-            context.startActivity(storeIntent)
-            false
-        } catch (_: Exception) {
-            false
-        }
-    }
-
-    val launchIntent = context.packageManager.getLaunchIntentForPackage(runtimeStatus.packageName) ?: return false
-    return try {
-        context.startActivity(launchIntent)
-        true
-    } catch (_: Exception) {
-        false
-    }
-}
+private fun launchGtaRuntime(context: Context): Boolean =
+    GtaPackageDetector.launch(context)
 
 private data class ServerProfile(
     val id: String,
