@@ -24,6 +24,18 @@ Es ist nicht vorgesehen für:
 
 Aktuell beginnt der RakNet-/Open:MP-Teil mit klarer Paket- und Wrapper-Erkennung (z. B. `0x00`, `0x1c`, `0x1d`, `0x7d`) als diagnostische Server-Health-Schicht. Eine echte mobile Multiplayer-Variante braucht ein separates, legales Projekt auf Basis von GTA SA Mobile mit eigener MP-Schicht; AndroidSA bleibt in dieser Sicht die diagnostische und launcherartige Vorstufe.
 
+## Implementierungs-Reihenfolge im App-Modul
+
+Die Anwendung darf die Projektgrenze nicht aus den Augen verlieren. Die Reihenfolge ist bewusst:
+
+1. GTA APK / Stream als erste reale Datenquelle
+2. Native Bridge und UDP-/Packet-Validierung
+3. Event-Diagnostik, Filterung und Dashboard-Sichtbarkeit
+4. RakNet/Open:MP-Observability nur als Analyse- und Diagnosewerkzeug
+5. Erst danach echte Spiel-/Multiplayer-Interpretation
+
+AndroidSA ist und bleibt ein Diagnose-/Probe-Layer. Es gibt keine Gameplay-Synchronisation, keinen echten GTA-SA-Android-Client und kein SA:MP-Join vor einem stabilen APK-Stream.
+
 ## Inhalt
 
 - `src/main/java/com/xrdoge/xrpl/androidsa/MainActivity.kt`  

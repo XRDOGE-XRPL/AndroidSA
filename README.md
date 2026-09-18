@@ -20,6 +20,34 @@ Nicht im Scope sind:
 
 Open:MP bleibt ein Server-/Launcher- und PC-Ökosystem; AndroidSA modelliert die diagnostische Server-/Netzwerk-Seite, nicht ein vollständiges Spiel-Client-Backend. Der RakNet-/Open:MP-Teil beginnt bewusst mit der Erkennung und Klassifizierung von Packetsignalen, nicht mit Gameplay-Synchronisierung.
 
+## Implementierungs-Reihenfolge und Scope-Guardrails
+
+AndroidSA verfolgt eine klare Reihenfolge, damit die Projektgrenze nicht verwässert wird:
+
+1. GTA APK / Stream als erste Implementierungsbasis
+   - Der reale Datenfluss der GTA-Laufzeit muss erst identifiziert und stabilisiert werden.
+   - AndroidSA darf den Stream-, Runtime- und Frame-Input erst dann als Grundlage für Diagnostik betrachten, wenn die Quelle verlässlich ist.
+
+2. Native Bridge und Transport-Validierung
+   - Kotlin/JNI-Brücke und native Laufzeit müssen echte Runtime-Events, UDP-/Socket-Proben und Paket-Signale sauber erfassen.
+   - Der Fokus liegt auf Status, Diagnose und Signalverifikation, nicht auf vollständiger Spiel-Client-Logik.
+
+3. Event-Diagnostik und Dashboard verstärken
+   - Event-Kategorien, Historie, Filterung und Zustandsdarstellung werden auf Sichtbarkeit des Streams ausgerichtet.
+   - Die Oberfläche ist ein Diagnose- und Betriebsdashboard, keine Spieloberfläche.
+
+4. RakNet/Open:MP-Mapping nur als Observability
+   - Pakete, Wrapper und Signale werden nur als beobachtbare Protokollmuster interpretiert.
+   - Diese Interpretation dient der Analyse und Entdeckung, nicht als Startpunkt für einen echten Android-Client.
+
+5. Erst dann echte Spiel-/Multiplayer-Schritte
+   - Sobald der GTA-APK-Stream stabil läuft und die Laufzeit zuverlässig durchläuft, kann man SA:MP-/Open:MP-Interpretation und konkrete Spielzustands-/Netzwerk-Analyse starten.
+   - Gameplay-relevante Logik ist erst dann legitim, wenn der Stream-/Runtime-Input als gesichert gilt.
+
+6. Kein SA:MP-Client vor einem echten Stream-Fundament
+   - AndroidSA bleibt bewusst ein Diagnostics-/Probe-Layer.
+   - Es gibt keine Gameplay-Synchronisation, kein direkter GTA-SA-Client und keine SA:MP-Join-Logik vor einem realen APK-Stream.
+
 ## Dokumentations-Map
 
 Das Repository enthält die zentralen Markdown-Dateien:
