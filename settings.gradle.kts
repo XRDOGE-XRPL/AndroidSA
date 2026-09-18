@@ -18,15 +18,7 @@ pluginManagement {
             }
         }
 
-        if (androidSaGoogleMavenUrl.isNullOrBlank()) {
-            google {
-                content {
-                    includeGroupByRegex("androidx.*")
-                    includeGroupByRegex("com\\.android.*")
-                    includeGroupByRegex("com\\.google.*")
-                }
-            }
-        } else {
+        if (!androidSaGoogleMavenUrl.isNullOrBlank()) {
             maven(url = uri(androidSaGoogleMavenUrl)) {
                 name = "AndroidSaGoogleMirror"
                 isAllowInsecureProtocol = androidSaGoogleMavenUrl.startsWith("http://")
@@ -35,6 +27,14 @@ pluginManagement {
                     includeGroupByRegex("com\\.android.*")
                     includeGroupByRegex("com\\.google.*")
                 }
+            }
+        }
+
+        google {
+            content {
+                includeGroupByRegex("androidx.*")
+                includeGroupByRegex("com\\.android.*")
+                includeGroupByRegex("com\\.google.*")
             }
         }
         mavenLocal()
@@ -64,15 +64,7 @@ dependencyResolutionManagement {
             }
         }
 
-        if (androidSaGoogleMavenUrl.isNullOrBlank()) {
-            google {
-                content {
-                    includeGroupByRegex("androidx.*")
-                    includeGroupByRegex("com\\.android.*")
-                    includeGroupByRegex("com\\.google.*")
-                }
-            }
-        } else {
+        if (!androidSaGoogleMavenUrl.isNullOrBlank()) {
             maven(url = uri(androidSaGoogleMavenUrl)) {
                 name = "AndroidSaGoogleMirror"
                 isAllowInsecureProtocol = androidSaGoogleMavenUrl.startsWith("http://")
@@ -81,6 +73,14 @@ dependencyResolutionManagement {
                     includeGroupByRegex("com\\.android.*")
                     includeGroupByRegex("com\\.google.*")
                 }
+            }
+        }
+
+        google {
+            content {
+                includeGroupByRegex("androidx.*")
+                includeGroupByRegex("com\\.android.*")
+                includeGroupByRegex("com\\.google.*")
             }
         }
         mavenLocal()
