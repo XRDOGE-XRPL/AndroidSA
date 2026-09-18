@@ -77,6 +77,38 @@ private data class ServerProfile(
     val probeHistory: List<String> = emptyList(),
 )
 
+private data class GtaRuntimePathEntry(
+    val label: String,
+    val value: String,
+)
+
+private fun runtimePathEntries(context: Context, packageName: String): List<GtaRuntimePathEntry> {
+    return try {
+        val pm = context.packageManager
+        val pkg = pm.getPackageInfo(packageName, 0)
+        val appInfo = pkg.applicationInfo ?: return emptyList()
+        val dataDir = appInfo.dataDir ?: "unknown"
+        val cacheDir = context.cacheDir?.absolutePath ?: "unknown"
+        val obbDir = context.obbDir?.absolutePath ?: "unknown"
+        val externalDir = context.getExternalFilesDir(null)?.absolutePath ?: "unknown"
+        val nativeDir = appInfo.nativeLibraryDir ?: "unknown"
+        listOf(
+            GtaRuntimePathEntry("Package", packageName),
+            GtaRuntimePathEntry("Source", appInfo.sourceDir ?: "unknown"),
+            GtaRuntimePathEntry("Data", dataDir),
+            GtaRuntimePathEntry("Native libs", nativeDir),
+            GtaRuntimePathEntry("Cache", cacheDir),
+            GtaRuntimePathEntry("OBB", obbDir),
+            GtaRuntimePathEntry("External files", externalDir),
+        )
+    } catch (_: Exception) {
+        listOf(
+            GtaRuntimePathEntry("Package", packageName),
+            GtaRuntimePathEntry("Path finder", "Runtime not installed or package access unavailable"),
+        )
+    }
+}
+
 private enum class ServerHealthStatus(val label: String) {
     HEALTHY("healthy"),
     SLOW("slow"),
@@ -359,6 +391,9 @@ private fun AndroidSAApp() {
     var streamCaptureState by remember { mutableStateOf(StreamCaptureState()) }
     var streamSurfaceReady by remember { mutableStateOf(false) }
     val gtaRuntimeStatus = remember(context) { detectGtaRuntime(context) }
+    val gtaRuntimePathEntries = remember(context, gtaRuntimeStatus.packageName) {
+        runtimePathEntries(context, gtaRuntimeStatus.packageName)
+    }
     val commandMutex = remember { Mutex() }
     val scope = rememberCoroutineScope()
     val capturePermissionLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
@@ -673,6 +708,44 @@ private fun AndroidSAApp() {
                             color = signalState.color,
                             style = MaterialTheme.typography.labelMedium,
                             fontWeight = FontWeight.Bold,
+                        )
+                    }
+                }
+            }
+            SectionCard(title = "GTA connection & path finder") {
+                Text(
+                    text = "Connection route: local device -> GTA SA Mobile host -> launch probe -> diagnostics stream",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color(0xFF1565C0),
+                )
+                Text(
+                    text = "This layer only inspects the local GTA runtime, package paths, and runtime metadata; it does not become a gameplay client.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color(0xFF2E7D32),
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    ActionButton(label = "Detect host", enabled = !isBusy) {
+                        val detected = detectGtaRuntime(context)
+                        applyLocalError("Host detection: ${detected.packageName} (${detected.state})")
+                    }
+                    ActionButton(label = "Open runtime", enabled = !isBusy && gtaRuntimeStatus.launchable) {
+                        launchGtaRuntime(context)
+                    }
+                }
+                gtaRuntimePathEntries.forEach { entry ->
+                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        Text(
+                            text = entry.label,
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                        Text(
+                            text = entry.value,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Color(0xFFE0E0E0),
                         )
                     }
                 }
