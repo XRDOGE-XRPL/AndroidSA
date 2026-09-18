@@ -31,5 +31,16 @@ if (NOT ANDROID)
         target_compile_features(client_state_test PRIVATE cxx_std_20)
         target_include_directories(client_state_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
         add_test(NAME client_state_test COMMAND client_state_test)
+
+        add_executable(
+            client_state_stress_test
+            native/network/ClientStateTest.cpp
+            native/network/ClientState.cpp
+            native/logging/Logger.cpp
+        )
+
+        target_compile_features(client_state_stress_test PRIVATE cxx_std_20)
+        target_include_directories(client_state_stress_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+        add_test(NAME client_state_stress_test COMMAND client_state_stress_test)
     endif()
 endif()

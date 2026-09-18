@@ -98,6 +98,12 @@ private fun runtimeHealthState(gtaStatus: GtaRuntimeStatus): String = when {
     else -> "runtime-ready"
 }
 
+private fun runtimeDashboardMessage(gtaStatus: GtaRuntimeStatus): String = when {
+    !gtaStatus.installed -> "Host missing: GTA SA Mobile is not installed on this device."
+    !gtaStatus.launchable -> "Host detected but launch intent is unavailable."
+    else -> "Host runtime is ready and launchable on this device."
+}
+
 private fun buildGtaConnectionRoute(
     gtaStatus: GtaRuntimeStatus,
     streamState: String,
@@ -697,6 +703,23 @@ private fun AndroidSAApp() {
             diagnosticsText = newSnapshot.overview.diagnostics
             latencyText = newSnapshot.overview.latencyMs.toString()
         }
+        val state = runtimeHealthState(gtaRuntimeStatus)
+        val dashboardMessage = runtimeDashboardMessage(gtaRuntimeStatus)
+        when {
+            state == "missing-host" -> {
+                diagnosticsText = dashboardMessage
+            }
+            state == "blocked" -> {
+                diagnosticsText = dashboardMessage
+            }
+            state == "runtime-ready" -> {
+                diagnosticsText = if (newSnapshot.overview.diagnostics.isNotBlank()) {
+                    newSnapshot.overview.diagnostics
+                } else {
+                    dashboardMessage
+                }
+            }
+        }
     }
 
     fun applyLocalError(message: String) {
@@ -803,6 +826,19 @@ private fun AndroidSAApp() {
         } finally {
             isLoading = false
         }
+    }
+
+    LaunchedEffect(gtaRuntimeStatus.state) {
+        val state = gtaRuntimeStatus.state
+        val message = runtimeDashboardMessage(gtaRuntimeStatus)
+        val runtimeStatusSnapshot = snapshot.copy(
+            overview = snapshot.overview.copy(
+                connectionState = state,
+                diagnostics = if (snapshot.overview.diagnostics.isBlank()) message else snapshot.overview.diagnostics,
+            ),
+            recentEvents = listOf(message) + snapshot.recentEvents,
+        )
+        applySnapshot(runtimeStatusSnapshot, syncInputs = false)
     }
 
     val shouldAutoRefreshMetrics = overview.connectionState.equals("connected", ignoreCase = true)
@@ -1052,13 +1088,35 @@ private fun AndroidSAApp() {
                     ActionButton(label = "Detect host", enabled = !isBusy) {
                         val detected = detectGtaRuntime(context)
                         gtaRuntimeStatus = detected
-                        applyLocalError("Host detection: ${detected.packageName} (${detected.state})")
+                        val hostMessage = runtimeDashboardMessage(detected)
+                        applySnapshot(
+                            snapshot.copy(
+                                overview = snapshot.overview.copy(
+                                    connectionState = detected.state,
+                                    diagnostics = hostMessage,
+                                ),
+                                recentEvents = listOf(hostMessage) + snapshot.recentEvents,
+                            ),
+                            syncInputs = false,
+                        )
                     }
                     ActionButton(label = "Open runtime", enabled = !isBusy && gtaRuntimeStatus.launchable) {
                         val launched = launchGtaRuntime(context)
                         gtaRuntimeStatus = detectGtaRuntime(context)
+                        val hostMessage = runtimeDashboardMessage(gtaRuntimeStatus)
                         if (!launched) {
                             applyLocalError("GTA SA Mobile launch intent is unavailable on this device")
+                        } else {
+                            applySnapshot(
+                                snapshot.copy(
+                                    overview = snapshot.overview.copy(
+                                        connectionState = gtaRuntimeStatus.state,
+                                        diagnostics = hostMessage,
+                                    ),
+                                    recentEvents = listOf(hostMessage) + snapshot.recentEvents,
+                                ),
+                                syncInputs = false,
+                            )
                         }
                     }
                 }
