@@ -1,6 +1,6 @@
 # AndroidSA
 
-AndroidSA ist ein Android-Prototyp für eine SA:MP-/Open:MP-orientierte Diagnose-, Probe- und Launcher-Schicht. Das Repository verbindet eine moderne Jetpack-Compose-Oberfläche mit einer Kotlin/JNI-Brücke und einem nativen C++20-Kern, um Verbindungsstatus, Serverprofile, Diagnosemeldungen, Laufzeitstatistiken, Event-Historie und echte UDP-Probe-Flows in einer klaren, testbaren Architektur zu modellieren.
+AndroidSA ist eine Android-Launcher- und Diagnose-Schicht für die lokal installierte GTA-SA-Mobile-Laufzeit auf demselben Gerät. Das Repository verbindet eine Jetpack-Compose-Oberfläche mit einer Kotlin/JNI-Brücke und einem nativen C++20-Kern, um Host-Detection, Launch, lokalen Stream-/Capture-Status, Diagnose, Serverprofile und echte UDP-Probe-Flows in einer klaren, testbaren Architektur zu modellieren.
 
 „AndroidSA startet und beobachtet die lokal installierte GTA-SA-Mobile-Laufzeit. Online kommt später in diese Laufzeit, nicht ins Compose-Dashboard.“
 
@@ -26,13 +26,15 @@ Open:MP bleibt ein Server-/Launcher- und PC-Ökosystem; AndroidSA modelliert die
 
 AndroidSA verfolgt eine klare Reihenfolge, damit die Projektgrenze nicht verwässert wird:
 
-1. GTA APK / Stream als erste Implementierungsbasis
-   - Der reale Datenfluss der GTA-Laufzeit muss erst identifiziert und stabilisiert werden.
-   - AndroidSA darf den Stream-, Runtime- und Frame-Input erst dann als Grundlage für Diagnostik betrachten, wenn die Quelle verlässlich ist.
+1. Detect + Launch
+   - Paketliste konfigurierbar, default `com.rockstargames.gtasa` und `com.rockstargames.gtasa.de`.
+   - Android manifest queries zeigen die Host-Apps sichtbar an, und der Launcher prüft Installationsstatus, Version und Start-Intent.
+   - Wenn die GTA-App fehlt, wird eine klare Meldung ausgegeben; kein Fake-Stream und keine Fake-Laufzeit.
 
-2. Native Bridge und Transport-Validierung
-   - Kotlin/JNI-Brücke und native Laufzeit müssen echte Runtime-Events, UDP-/Socket-Proben und Paket-Signale sauber erfassen.
-   - Der Fokus liegt auf Status, Diagnose und Signalverifikation, nicht auf vollständiger Spiel-Client-Logik.
+2. Lokaler Stream / Capture
+   - Der lokale Stream bleibt ein reales Capture-/Live-State-Feature des Host-Prozesses auf demselben Gerät.
+   - `stream:start`, `stream:stop`, `stream:pause`, `stream:info` und `stream:source:<package>` sind auf den bestehenden native Command-/State-Pfad gehängt.
+   - Solange die Laufzeit nicht als `STREAM_LIVE` bestätigt ist, gilt der SA-Kontext als unsicher.
 
 3. Event-Diagnostik und Dashboard verstärken
    - Event-Kategorien, Historie, Filterung und Zustandsdarstellung werden auf Sichtbarkeit des Streams ausgerichtet.
@@ -63,7 +65,7 @@ Das Repository enthält die zentralen Markdown-Dateien:
 - `app/src/main/cpp/README.md` – Native-Layer-Dokumentation
 - `docs/ANDROID_DEVICE_CI_READY_CHECKLIST.md` – optionaler Geräte-/Emulator-Check
 - `docs/RELEASE_CHECKLIST.md` – finale Release-Gate-Checkliste
-- `docs/GTA_SA_MOBILE_SYSTEMANALYSE.md` – APK-/Dateisystem-/Runtime-Analyse der echten `com.rockstargames.gtasager`-App-Struktur
+- `docs/GTA_SA_MOBILE_SYSTEMANALYSE.md` – APK-/Dateisystem-/Runtime-Analyse der GTA-SA-Mobile-Host-Laufzeit und ihrer Paketfamilie
 
 ## Projektstatus
 
@@ -150,7 +152,9 @@ Die JVM- und native Validierung akzeptieren diese Befehle mit genauer Syntax:
 - `diagnostics:<text>`
 - `stream:start`
 - `stream:stop`
+- `stream:pause`
 - `stream:info`
+- `stream:source:<package>`
 - `simulate:rx`
 - `simulate:tx`
 - `fail:<reason>`

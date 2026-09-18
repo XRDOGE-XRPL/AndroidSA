@@ -70,10 +70,15 @@ private fun canonicalizeNativeCommand(sanitized: String, normalized: String): St
         normalized.startsWith("stream:") -> {
             val value = requireExactValueCommand(sanitized, normalized, "stream", "Stream")
             val normalizedValue = value.lowercase()
-            require(normalizedValue in setOf("start", "stop", "info")) {
-                "Stream command value must be start, stop, or info"
+            when {
+                normalizedValue in setOf("start", "stop", "pause", "info") -> "stream:$normalizedValue"
+                normalizedValue.startsWith("source:") -> {
+                    val sourcePackage = normalizedValue.substringAfter(":", "").trim()
+                    require(sourcePackage.isNotEmpty()) { "Stream source package must not be blank" }
+                    "stream:source:$sourcePackage"
+                }
+                else -> throw IllegalArgumentException("Stream command value must be start, stop, pause, info, or source:<package>")
             }
-            "stream:$normalizedValue"
         }
         else -> sanitized
     }
@@ -126,8 +131,14 @@ internal fun requireValidNativeCommand(command: String): String {
         }
         normalized.startsWith("stream:") -> {
             val streamValue = requireExactValueCommand(sanitized, normalized, "stream", "Stream")
-            require(streamValue.lowercase() in setOf("start", "stop", "info")) {
-                "Stream command value must be start, stop, or info"
+            val normalizedStreamValue = streamValue.lowercase()
+            when {
+                normalizedStreamValue in setOf("start", "stop", "pause", "info") -> Unit
+                normalizedStreamValue.startsWith("source:") -> {
+                    val sourcePackage = normalizedStreamValue.substringAfter(":", "").trim()
+                    require(sourcePackage.isNotEmpty()) { "Stream source package must not be blank" }
+                }
+                else -> throw IllegalArgumentException("Stream command value must be start, stop, pause, info, or source:<package>")
             }
         }
         else -> {

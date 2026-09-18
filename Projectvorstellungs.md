@@ -2,7 +2,7 @@
 
 ## Kurzbeschreibung
 
-AndroidSA ist ein Android-Prototyp für eine SA:MP-/Open:MP-orientierte Diagnose-, Probe- und Launcher-Schicht. Das Repository verbindet eine Jetpack-Compose-Oberfläche mit einer Kotlin/JNI-Brücke und einem nativen C++20-Kern. Der Schwerpunkt liegt auf einem vollständigen, dokumentierten Laufzeitmodell für Verbindungsstatus, Serverprofile, Diagnosemeldungen, Event-Historie, Paketstatistiken und UDP-Transport-Probing.
+AndroidSA ist eine Diagnose- und Launcher-Schicht für die lokal installierte GTA SA Mobile-Laufzeit auf demselben Android-Gerät. Das Repository verbindet eine Jetpack-Compose-Oberfläche mit einer Kotlin/JNI-Brücke und einem nativen C++20-Kern. Der Schwerpunkt liegt auf einem vollständigen, dokumentierten Laufzeitmodell für Host-Detection, Start, lokaler Capture-/Stream-Status, Diagnosemeldungen, Event-Historie, Paketstatistiken und UDP-Transport-Probing.
 
 ## Reale Produktpositionierung
 
@@ -16,11 +16,11 @@ Die Kernidee ist: AndroidSA ist ein Sammler und Diagnostiker für das Netzwerk-/
 
 ## Aktueller Stand
 
-Der Prototyp befindet sich im finalen Abschlussstadium. Die Kernarchitektur und die wichtigsten Qualitätsbereiche sind bereits abgeschlossen:
+Der Prototyp befindet sich im Naht-B-Abschnitt für den Host-/Runtime-Stack. Die Kernarchitektur und die wichtigsten Qualitätsbereiche sind bereits abgeschlossen:
 
-- Jetpack Compose UI mit Server-Browser und Runtime-Stats
-- Kotlin/JNI-Bridge mit 11-Felder Summary-Format
-- C++20 ClientState mit Mutex-geschütztem Zustand und Event-Historie
+- Jetpack Compose UI mit Host-Status, Package Detection und Stream-Controls
+- Kotlin/JNI-Bridge mit 11-Felder Summary-Format und erweiterten `stream:*`-Commands
+- C++20 ClientState mit Mutex-geschütztem Zustand, Event-Historie und Stream-Lifecycle
 - UDP-Probe- und Paket-Erkenner für Loopback- und Remote-Targets
 - native Host-Tests via CMake/CTest
 - JVM-Unit-Tests via Gradle

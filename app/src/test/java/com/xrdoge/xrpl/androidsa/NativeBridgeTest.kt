@@ -203,6 +203,15 @@ class NativeBridgeTest {
     }
 
     @Test
+    fun requireValidNativeCommandAcceptsStreamLifecycleCommands() {
+        assertEquals("stream:start", requireValidNativeCommand("stream:start"))
+        assertEquals("stream:stop", requireValidNativeCommand("Stream:stop"))
+        assertEquals("stream:pause", requireValidNativeCommand("stream:pause"))
+        assertEquals("stream:info", requireValidNativeCommand("stream:info"))
+        assertEquals("stream:source:com.rockstargames.gtasa", requireValidNativeCommand("stream:source:com.rockstargames.gtasa"))
+    }
+
+    @Test
     fun requireValidNativeCommandRejectsMissingTransportSeparator() {
         assertThrows(IllegalArgumentException::class.java) {
             requireValidNativeCommand("transportudp")

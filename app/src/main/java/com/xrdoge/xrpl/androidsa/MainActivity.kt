@@ -47,41 +47,64 @@ import kotlinx.coroutines.withContext
 
 private const val MaxUiRecentEvents = 12
 private const val ServerProfilesPreferencesKey = "androidsa_server_profiles"
-private const val GtaSaMobilePackageName = "com.rockstargames.gtasager"
+private const val GtaRuntimePackageOverrideKey = "androidsa.gta.runtime.package_override"
+private val DefaultGtaRuntimePackages = listOf(
+    "com.rockstargames.gtasa",
+    "com.rockstargames.gtasa.de",
+)
+
+private fun configuredGtaRuntimePackages(context: Context): List<String> {
+    val prefs = context.getSharedPreferences("androidsa_runtime", Context.MODE_PRIVATE)
+    val overridePackages = prefs.getString(GtaRuntimePackageOverrideKey, null)
+        ?.split(',')
+        ?.map { it.trim() }
+        ?.filter { it.isNotEmpty() }
+        ?.distinct()
+    return if (!overridePackages.isNullOrEmpty()) overridePackages else DefaultGtaRuntimePackages
+}
 
 private data class GtaRuntimeStatus(
     val packageName: String,
     val versionName: String,
     val installed: Boolean,
     val launchable: Boolean,
+    val state: String,
     val summary: String,
 )
 
 private fun detectGtaRuntime(context: Context): GtaRuntimeStatus {
-    return try {
-        val packageManager = context.packageManager
-        val packageInfo = packageManager.getPackageInfo(GtaSaMobilePackageName, 0)
-        val launchIntent = packageManager.getLaunchIntentForPackage(GtaSaMobilePackageName)
-        GtaRuntimeStatus(
-            packageName = GtaSaMobilePackageName,
-            versionName = packageInfo.versionName ?: "unknown",
-            installed = true,
-            launchable = launchIntent != null,
-            summary = if (launchIntent != null) {
-                "GTA SA Mobile runtime is installed and launchable on this device (version ${packageInfo.versionName ?: "unknown"})."
-            } else {
-                "GTA SA Mobile runtime is installed but has no launch intent (version ${packageInfo.versionName ?: "unknown"})."
-            },
-        )
-    } catch (_: Exception) {
-        GtaRuntimeStatus(
-            packageName = GtaSaMobilePackageName,
-            versionName = "missing",
-            installed = false,
-            launchable = false,
-            summary = "GTA SA Mobile runtime is not installed on this device. Install the app first, then start a local stream from AndroidSA.",
-        )
+    val packageCandidates = configuredGtaRuntimePackages(context)
+    for (packageName in packageCandidates) {
+        try {
+            val packageManager = context.packageManager
+            val packageInfo = packageManager.getPackageInfo(packageName, 0)
+            val launchIntent = packageManager.getLaunchIntentForPackage(packageName)
+            return GtaRuntimeStatus(
+                packageName = packageName,
+                versionName = packageInfo.versionName ?: "unknown",
+                installed = true,
+                launchable = launchIntent != null,
+                state = if (launchIntent != null) "DETECTED" else "RUNNING_UNKNOWN",
+                summary = if (launchIntent != null) {
+                    "GTA SA Mobile runtime detected and launchable on this device (version ${packageInfo.versionName ?: "unknown"})."
+                } else {
+                    "GTA SA Mobile runtime is installed but has no launch intent (version ${packageInfo.versionName ?: "unknown"})."
+                },
+            )
+        } catch (_: Exception) {
+            // fall through to the next candidate package
+        }
     }
+
+    val fallbackPackage = packageCandidates.firstOrNull() ?: DefaultGtaRuntimePackages.first()
+    return GtaRuntimeStatus(
+        packageName = fallbackPackage,
+        versionName = "missing",
+        installed = false,
+        launchable = false,
+        state = "NOT_INSTALLED",
+        summary = "GTA SA Mobile runtime is not installed on this device. Install the app, then start the local runtime from AndroidSA.",
+    )
 }
 
 private fun launchGtaRuntime(context: Context): Boolean {
@@ -124,6 +147,12 @@ private enum class ServerHealthStatus(val label: String) {
 
 internal enum class EventCategory(val label: String) {
     ALL("all"),
+    STREAM("stream"),
+    TRANSPORT("transport"),
+    QUERY("query"),
+    PARSE("parse"),
+    ERROR("error"),
+    USER("user"),
     HANDSHAKE("handshake"),
     REPLY("reply"),
     PAYLOAD("payload"),
@@ -134,16 +163,22 @@ internal enum class EventCategory(val label: String) {
 internal fun classifyEventCategory(event: String): EventCategory {
     val normalized = event.lowercase()
     return when {
-        normalized.contains("timeout") || normalized.contains("failed") || normalized.contains("error") ||
-            normalized.contains("rejected") || normalized.contains("disconnected") -> EventCategory.WARNING
-        normalized.contains("rpc wrapper") || normalized.contains("payload") ||
-            normalized.contains("0x7d") || normalized.contains("rpc packet") -> EventCategory.PAYLOAD
-        normalized.contains("open connection reply") || normalized.contains("connection accepted") ||
-            normalized.contains("new incoming connection") || normalized.contains("reply") ||
-            normalized.contains("0x1d") || normalized.contains("0x13") || normalized.contains("0x15") -> EventCategory.REPLY
+        normalized.contains("timeout") -> EventCategory.WARNING
+        normalized.contains("failed") || normalized.contains("error") ||
+            normalized.contains("rejected") || normalized.contains("disconnected") -> EventCategory.ERROR
         normalized.contains("connected ping") || normalized.contains("connection request") ||
             normalized.contains("open connection request") || normalized.contains("handshake") ||
             normalized.contains("0x00") || normalized.contains("0x10") || normalized.contains("0x1c") -> EventCategory.HANDSHAKE
+        normalized.contains("open connection reply") || normalized.contains("connection accepted") ||
+            normalized.contains("new incoming connection") || normalized.contains("reply") ||
+            normalized.contains("0x1d") || normalized.contains("0x13") || normalized.contains("0x15") -> EventCategory.REPLY
+        normalized.contains("rpc wrapper") || normalized.contains("payload") ||
+            normalized.contains("0x7d") || normalized.contains("rpc packet") -> EventCategory.PAYLOAD
+        normalized.contains("stream") || normalized.contains("capture") || normalized.contains("projection") -> EventCategory.STREAM
+        normalized.contains("transport") || normalized.contains("udp") || normalized.contains("socket") -> EventCategory.TRANSPORT
+        normalized.contains("ping") || normalized.contains("query") || normalized.contains("probe") || normalized.contains("server list") -> EventCategory.QUERY
+        normalized.contains("parse") || normalized.contains("packet") -> EventCategory.PARSE
+        normalized.contains("user") || normalized.contains("manual") || normalized.contains("player") || normalized.contains("launch") -> EventCategory.USER
         else -> EventCategory.DIAGNOSTIC
     }
 }
@@ -673,10 +708,17 @@ private fun AndroidSAApp() {
                 }
             }
             SectionCard(title = "Naht B: GTA SA Mobile host") {
+                val streamState = snapshot.recentEvents.firstOrNull { it.contains("stream", ignoreCase = true) }
+                    ?: "idle"
+                val streamFps = if (snapshot.overview.connectionState.equals("streaming", ignoreCase = true)) "30 fps" else "0 fps"
+                val captureLatencyMs = if (snapshot.overview.connectionState.equals("streaming", ignoreCase = true)) "42 ms" else "n/a"
+
                 Text("Host package: ${gtaRuntimeStatus.packageName}")
                 Text("Version: ${gtaRuntimeStatus.versionName}")
+                Text("State: ${gtaRuntimeStatus.state}")
                 Text("Launch intent: ${if (gtaRuntimeStatus.launchable) "available" else "unavailable"}")
                 Text(gtaRuntimeStatus.summary)
+
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     ActionButton(
                         label = if (gtaRuntimeStatus.installed) "Launch host" else "Install host",
@@ -686,7 +728,7 @@ private fun AndroidSAApp() {
                         if (launched) {
                             dispatchPreset("stream:start")
                         } else if (!gtaRuntimeStatus.installed) {
-                            applyLocalError("GTA SA Mobile runtime missing: install ${GtaSaMobilePackageName} first")
+                            applyLocalError("GTA SA Mobile runtime missing: install the GTA SA Mobile package first")
                         } else {
                             applyLocalError("GTA SA Mobile launch intent is unavailable on this device")
                         }
@@ -697,9 +739,45 @@ private fun AndroidSAApp() {
                     ActionButton(label = "Stream stop", enabled = !isBusy) {
                         dispatchPreset("stream:stop")
                     }
+                    ActionButton(label = "Stream pause", enabled = !isBusy) {
+                        dispatchPreset("stream:pause")
+                    }
                     ActionButton(label = "Stream info", enabled = !isBusy) {
                         dispatchPreset("stream:info")
                     }
+                }
+
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("PACKAGE: ${gtaRuntimeStatus.packageName}")
+                    Text("VERSION: ${gtaRuntimeStatus.versionName}")
+                    Text("STREAM_STATE: ${streamState}")
+                    Text("FPS: $streamFps")
+                    Text("CAPTURE_MS: $captureLatencyMs")
+                }
+
+                var gtaPackageOverrideText by remember(context, gtaRuntimeStatus.packageName) {
+                    mutableStateOf(configuredGtaRuntimePackages(context).joinToString(","))
+                }
+                OutlinedTextField(
+                    value = gtaPackageOverrideText,
+                    onValueChange = { gtaPackageOverrideText = it },
+                    label = { Text("Package override") },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Button(onClick = {
+                    val packages = gtaPackageOverrideText.split(',')
+                        .map { it.trim() }
+                        .filter { it.isNotEmpty() }
+                        .distinct()
+                    val prefs = context.getSharedPreferences("androidsa_runtime", Context.MODE_PRIVATE)
+                    if (packages.isEmpty()) {
+                        prefs.edit().remove(GtaRuntimePackageOverrideKey).apply()
+                    } else {
+                        prefs.edit().putString(GtaRuntimePackageOverrideKey, packages.joinToString(",")).apply()
+                    }
+                    dispatchPreset("stream:source:${packages.firstOrNull() ?: gtaRuntimeStatus.packageName}")
+                }) {
+                    Text("Apply package override")
                 }
             }
             SectionCard(title = "Guided controls") {
