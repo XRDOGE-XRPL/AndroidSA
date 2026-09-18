@@ -16,7 +16,23 @@ Die Kernidee ist: AndroidSA ist ein Sammler und Diagnostiker für das Netzwerk-/
 
 ## Aktueller Stand
 
-Der Prototyp befindet sich im Naht-B-Abschnitt für den Host-/Runtime-Stack. Die Kernarchitektur und die wichtigsten Qualitätsbereiche sind bereits abgeschlossen:
+Der Prototyp befindet sich im Naht-B-Abschnitt für den Host-/Runtime-Stack. Der aktuelle Scope ist explizit auf lokale GTA-SA-Mobile-Host-Erkennung und Launch begrenzt:
+
+- Phase 1: Host-Erkennung und Launch der lokalen GTA-SA-Mobile-Laufzeit auf demselben Gerät
+- Manifest-Queries nur für `com.rockstargames.gtasager`, `com.rockstargames.gtasa` und `com.rockstargames.gtasa.de`
+- `GtaPackageDetector` prüft Installationsstatus, Version und Launch-Intent
+- `stream:info` liefert Paket-/Launch-/Runtime-Daten, aber keine Join-/Gameplay-Logik
+- Phase 2 bleibt auf lokale Capture-/Surface-/Stream-Diagnostik begrenzt
+
+Ausdrücklich ausgeschlossen bleiben:
+
+- Join, Sync, Multiplayer-Client
+- Play Core gegen GTA
+- GTA V
+- QUERY_ALL_PACKAGES
+- Repo-Assets mit GTA-Inhalten
+
+Zusätzlich sind die Kernarchitektur und die wichtigsten Qualitätsbereiche bereits abgeschlossen:
 
 - Jetpack Compose UI mit Host-Status, Package Detection und Stream-Controls
 - Kotlin/JNI-Bridge mit 11-Felder Summary-Format und erweiterten `stream:*`-Commands
