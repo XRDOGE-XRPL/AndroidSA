@@ -60,18 +60,47 @@ PY
 
 ensure_local_google_maven_proxy
 
-echo "[1/5] Warming Gradle dependency/plugin resolution"
+echo "[1/6] Warming Gradle dependency/plugin resolution"
 ./gradlew --no-daemon help --stacktrace --refresh-dependencies
 
-echo "[2/5] Running native host tests"
+echo "[2/6] Verifying runtime-state guardrails"
+python3 - <<'PY'
+import pathlib
+root = pathlib.Path('.').resolve()
+texts = [
+    root / 'app' / 'src' / 'main' / 'java' / 'com' / 'xrdoge' / 'xrpl' / 'androidsa' / 'GtaPackageDetector.kt',
+    root / 'app' / 'src' / 'main' / 'java' / 'com' / 'xrdoge' / 'xrpl' / 'androidsa' / 'MainActivity.kt',
+]
+required = {
+    'runtime-ready',
+    'blocked',
+    'missing-host',
+    'com.rockstargames.gtasager',
+    'com.rockstargames.gtasasa',
+    'com.rockstargames.gtasa',
+    'com.rockstargames.gtasa.de',
+}
+seen = set()
+for path in texts:
+    for line in path.read_text(encoding='utf-8').splitlines():
+        for token in required:
+            if token in line:
+                seen.add(token)
+missing = sorted(required - seen)
+if missing:
+    raise SystemExit(f"Required runtime-state or package markers missing from validation sources: {missing}")
+print('Runtime-state and package guardrails verified.')
+PY
+
+echo "[3/6] Running native host tests"
 cmake -S app/src/main/cpp -B build/native-tests -DANDROIDSA_ENABLE_NATIVE_TESTS=ON
 cmake --build build/native-tests --target client_state_test
 ctest --test-dir build/native-tests --output-on-failure
 
-echo "[3/5] Running JVM unit tests"
+echo "[4/6] Running JVM unit tests"
 ./gradlew --no-daemon :app:testDebugUnitTest --stacktrace
 
-echo "[4/5] Assembling app artifacts"
+echo "[5/6] Assembling app artifacts"
 ./gradlew --no-daemon :app:assemble --stacktrace
 
-echo "[5/5] Release validation completed successfully"
+echo "[6/6] Release validation completed successfully"

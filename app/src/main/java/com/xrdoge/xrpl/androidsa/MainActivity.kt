@@ -152,19 +152,22 @@ private fun runtimeRouteSummary(
     }
 }
 
+private fun safeRuntimePath(value: String?, fallback: String = "unavailable"): String =
+    value?.takeIf { it.isNotBlank() } ?: fallback
+
 private fun runtimePathEntries(context: Context, packageName: String): List<GtaRuntimePathEntry> {
     return try {
         val pm = context.packageManager
         val pkg = pm.getPackageInfo(packageName, 0)
         val appInfo = pkg.applicationInfo ?: return emptyList()
-        val dataDir = appInfo.dataDir ?: "unknown"
-        val cacheDir = context.cacheDir?.absolutePath ?: "unknown"
-        val obbDir = context.obbDir?.absolutePath ?: "unknown"
-        val externalDir = context.getExternalFilesDir(null)?.absolutePath ?: "unknown"
-        val nativeDir = appInfo.nativeLibraryDir ?: "unknown"
+        val dataDir = safeRuntimePath(appInfo.dataDir)
+        val cacheDir = safeRuntimePath(context.cacheDir?.absolutePath)
+        val obbDir = safeRuntimePath(context.obbDir?.absolutePath)
+        val externalDir = runCatching { context.getExternalFilesDir(null)?.absolutePath }.getOrNull()?.let { safeRuntimePath(it) } ?: "unavailable"
+        val nativeDir = safeRuntimePath(appInfo.nativeLibraryDir)
         listOf(
             GtaRuntimePathEntry("Package", packageName),
-            GtaRuntimePathEntry("Source", appInfo.sourceDir ?: "unknown"),
+            GtaRuntimePathEntry("Source", safeRuntimePath(appInfo.sourceDir)),
             GtaRuntimePathEntry("Data", dataDir),
             GtaRuntimePathEntry("Native libs", nativeDir),
             GtaRuntimePathEntry("Cache", cacheDir),
