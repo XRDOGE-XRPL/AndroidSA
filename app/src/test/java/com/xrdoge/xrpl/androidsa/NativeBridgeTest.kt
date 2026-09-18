@@ -289,6 +289,29 @@ class NativeBridgeTest {
     }
 
     @Test
+    fun classifyEventCategoryRecognizesKeySignals() {
+        assertEquals(EventCategory.HANDSHAKE, classifyEventCategory("RX RakNet connected ping"))
+        assertEquals(EventCategory.REPLY, classifyEventCategory("Open connection reply received"))
+        assertEquals(EventCategory.PAYLOAD, classifyEventCategory("RX Open:MP/SA:MP RPC wrapper"))
+        assertEquals(EventCategory.WARNING, classifyEventCategory("UDP timeout while waiting for reply"))
+        assertEquals(EventCategory.DIAGNOSTIC, classifyEventCategory("Session reset to initial state"))
+    }
+
+    @Test
+    fun filterRecentEventsFiltersExpectedCategory() {
+        val events = listOf(
+            "RX RakNet connected ping",
+            "RX Open:MP/SA:MP RPC wrapper",
+            "Timeout while waiting for reply",
+            "Session reset to initial state",
+        )
+
+        assertEquals(listOf("RX RakNet connected ping"), filterRecentEvents(events, EventCategory.HANDSHAKE))
+        assertEquals(listOf("Timeout while waiting for reply"), filterRecentEvents(events, EventCategory.WARNING))
+        assertEquals(listOf("Session reset to initial state"), filterRecentEvents(events, EventCategory.DIAGNOSTIC))
+    }
+
+    @Test
     fun requireValidNativeCommandRejectsMissingFailSeparator() {
         assertThrows(IllegalArgumentException::class.java) {
             requireValidNativeCommand("fail")

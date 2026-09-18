@@ -62,6 +62,43 @@ private enum class ServerHealthStatus(val label: String) {
     UNKNOWN("unknown"),
 }
 
+internal enum class EventCategory(val label: String) {
+    ALL("all"),
+    HANDSHAKE("handshake"),
+    REPLY("reply"),
+    PAYLOAD("payload"),
+    WARNING("warning"),
+    DIAGNOSTIC("diagnostic"),
+}
+
+internal fun classifyEventCategory(event: String): EventCategory {
+    val normalized = event.lowercase()
+    return when {
+        normalized.contains("timeout") || normalized.contains("failed") || normalized.contains("error") -> EventCategory.WARNING
+        normalized.contains("rpc wrapper") || normalized.contains("payload") || normalized.contains("0x7d") -> EventCategory.PAYLOAD
+        normalized.contains("open connection reply") || normalized.contains("reply") || normalized.contains("0x1d") -> EventCategory.REPLY
+        normalized.contains("connected ping") || normalized.contains("open connection request") || normalized.contains("handshake") || normalized.contains("0x00") || normalized.contains("0x1c") -> EventCategory.HANDSHAKE
+        else -> EventCategory.DIAGNOSTIC
+    }
+}
+
+internal fun filterRecentEvents(events: List<String>, category: EventCategory): List<String> {
+    if (category == EventCategory.ALL) {
+        return events
+    }
+    val filtered = events.filter { classifyEventCategory(it) == category }
+    return filtered.ifEmpty { listOf("No ${category.label} events") }
+}
+
+internal fun summarizeEventCategories(events: List<String>): Map<EventCategory, Int> {
+    val totals = EventCategory.entries.associateWith { 0 }.toMutableMap()
+    events.forEach { event ->
+        val category = classifyEventCategory(event)
+        totals[category] = (totals[category] ?: 0) + 1
+    }
+    return totals
+}
+
 private enum class ProbeResult(val label: String, val description: String, val color: Color) {
     IDLE("idle", "No probe evidence yet", Color(0xFF616161)),
     HANDSHAKE("handshake", "Probe reached the server and started a RakNet-style exchange", Color(0xFF1976D2)),
@@ -277,12 +314,17 @@ private fun AndroidSAApp() {
     var isLoading by remember { mutableStateOf(false) }
     var commandJob by remember { mutableStateOf<Job?>(null) }
     var commandInFlight by remember { mutableStateOf<String?>(null) }
+    var eventFilter by remember { mutableStateOf(EventCategory.ALL) }
     val commandMutex = remember { Mutex() }
     val scope = rememberCoroutineScope()
     LaunchedEffect(serverProfiles) {
         persistServerProfiles(context, serverProfiles)
     }
     val overview = snapshot.overview
+    val eventCounts = summarizeEventCategories(snapshot.recentEvents)
+    val filteredRecentEvents = remember(snapshot.recentEvents, eventFilter) {
+        filterRecentEvents(snapshot.recentEvents, eventFilter)
+    }
     val txRxRatio = when {
         overview.packetsSent == 0 && overview.packetsReceived == 0 -> "0.00"
         overview.packetsReceived == 0 -> "∞"
@@ -803,7 +845,22 @@ private fun AndroidSAApp() {
                 }
             }
             SectionCard(title = "Recent events") {
-                snapshot.recentEvents.forEach { event ->
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    EventCategory.entries.forEach { category ->
+                        val isSelected = eventFilter == category
+                        Button(
+                            modifier = Modifier.weight(1f),
+                            enabled = true,
+                            onClick = { eventFilter = category },
+                        ) {
+                            Text("${category.label} (${eventCounts[category] ?: 0})")
+                        }
+                    }
+                }
+                filteredRecentEvents.forEach { event ->
                     Text(text = "• $event", style = MaterialTheme.typography.bodyMedium)
                 }
             }
