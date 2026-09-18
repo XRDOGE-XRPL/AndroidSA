@@ -850,7 +850,6 @@ private fun AndroidSAApp() {
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     EventCategory.entries.forEach { category ->
-                        val isSelected = eventFilter == category
                         Button(
                             modifier = Modifier.weight(1f),
                             enabled = true,
