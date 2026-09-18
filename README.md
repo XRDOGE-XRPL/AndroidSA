@@ -173,6 +173,7 @@ Die JVM- und native Validierung akzeptieren diese Befehle mit genauer Syntax:
 - `stream:pause`
 - `stream:info`
 - `stream:source:<package>`
+- `protocol:<idle|handshake|reply|payload|status>`
 - `simulate:rx`
 - `simulate:tx`
 - `fail:<reason>`

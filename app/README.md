@@ -131,6 +131,7 @@ Vor dem JNI-Aufruf gelten diese Regeln:
 - exakte Form `player:<name>`
 - exakte Form `latency:<ms>` mit nicht-negativem Integer
 - exakte Form `diagnostics:<value>`
+- exakte Form `protocol:<idle|handshake|reply|payload|status>`
 - exakte Form `simulate:rx|tx`
 - exakte Form `fail:<reason>`
 

@@ -1337,7 +1337,7 @@ private fun AndroidSAApp() {
                     supportingText = {
                         Text(
                             commandError
-                                ?: "Examples: ping, connect, connect:demo.sa-mp.local:7777, player:Guest, transport:udp, latency:42, diagnostics:ok, simulate:rx, stream:start, stream:stop, stream:info"
+                                ?: "Examples: ping, connect, connect:demo.sa-mp.local:7777, player:Guest, transport:udp, latency:42, diagnostics:ok, protocol:handshake, protocol:status, simulate:rx, stream:start, stream:stop, stream:info"
                         )
                     },
                     modifier = Modifier.fillMaxWidth(),

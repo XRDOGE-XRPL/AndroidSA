@@ -81,6 +81,12 @@ Dieses Format wird direkt in Kotlin weiterverarbeitet. Änderungen daran erforde
 - `diagnostics:<text>`
 - `player:<name>`
 - `latency:<ms>`
+- `protocol:<idle|handshake|reply|payload|status>`
+- `stream:start`
+- `stream:stop`
+- `stream:pause`
+- `stream:info`
+- `stream:source:<package>`
 - `fail:<reason>`
 - `simulate:rx`
 - `simulate:tx`
