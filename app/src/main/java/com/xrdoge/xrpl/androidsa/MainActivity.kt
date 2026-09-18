@@ -367,6 +367,7 @@ private fun AndroidSAApp() {
         val resultCode = result.resultCode
         val data = result.data
         if (resultCode == Activity.RESULT_OK && data != null) {
+            streamCaptureState = StreamCaptureState(state = "starting", errorReason = null)
             StreamCaptureService.startWithProjection(context, resultCode, data)
             streamCaptureState = StreamCaptureService.currentState()
         } else {
@@ -702,6 +703,7 @@ private fun AndroidSAApp() {
                 Text("State: ${gtaRuntimeStatus.state}")
                 Text("Launch intent: ${if (gtaRuntimeStatus.launchable) "available" else "unavailable"}")
                 Text(gtaRuntimeStatus.summary)
+                Text("Capture status: ${streamCaptureState.description()}")
                 if (streamCaptureState.errorReason != null) {
                     Text("Stream error: ${streamCaptureState.errorReason}", color = Color(0xFFD32F2F))
                 }
@@ -720,16 +722,23 @@ private fun AndroidSAApp() {
                             applyLocalError("GTA SA Mobile launch intent is unavailable on this device")
                         }
                     }
-                    ActionButton(label = if (streamCaptureState.state == "live") "Stream running" else "Stream start", enabled = !isBusy && streamSurfaceReady) {
+                    ActionButton(
+                        label = if (streamCaptureState.state == "live") "Stream running" else if (streamCaptureState.state == "paused") "Resume stream" else "Stream start",
+                        enabled = !isBusy && streamSurfaceReady,
+                    ) {
                         if (streamCaptureState.state == "live") {
                             StreamCaptureService.requestStop(context)
                             streamCaptureState = StreamCaptureState(state = "stopped")
                             dispatchPreset("stream:stop")
+                        } else if (streamCaptureState.state == "paused") {
+                            streamCaptureState = StreamCaptureState(state = "starting", errorReason = null)
+                            StreamCaptureService.startWithProjection(context, Activity.RESULT_OK, Intent())
+                            dispatchPreset("stream:start")
                         } else {
                             val projectionManager = context.getSystemService(MediaProjectionManager::class.java)
                             val captureIntent = projectionManager.createScreenCaptureIntent()
+                            streamCaptureState = StreamCaptureState(state = "need_permission", errorReason = null)
                             capturePermissionLauncher.launch(captureIntent)
-                            streamCaptureState = StreamCaptureState(state = "starting", errorReason = null)
                             dispatchPreset("stream:start")
                         }
                     }
@@ -739,6 +748,8 @@ private fun AndroidSAApp() {
                         dispatchPreset("stream:stop")
                     }
                     ActionButton(label = "Stream pause", enabled = !isBusy) {
+                        StreamCaptureService.requestPause(context)
+                        streamCaptureState = StreamCaptureState(state = "paused")
                         dispatchPreset("stream:pause")
                     }
                     ActionButton(label = "Stream info", enabled = !isBusy) {

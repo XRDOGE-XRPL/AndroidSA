@@ -40,12 +40,24 @@ data class StreamCaptureState(
     val errorReason: String? = null,
 ) {
     fun metrics() = CaptureMetrics(captureFps, frameWidth, frameHeight, droppedFrames, captureLatencyMs, lastFrameEpoch)
+
+    fun description(): String = when (state.lowercase()) {
+        "idle" -> "Awaiting capture session"
+        "need_permission" -> "Waiting for screen capture permission"
+        "starting" -> "Booting local capture service"
+        "live" -> "Live capture active"
+        "paused" -> "Capture paused"
+        "stopped" -> "Capture stopped"
+        "error" -> "Capture failed"
+        else -> "Unknown capture state"
+    }
 }
 
 class StreamCaptureService : Service() {
     companion object {
         const val ACTION_START = "com.xrdoge.xrpl.androidsa.action.START_CAPTURE"
         const val ACTION_STOP = "com.xrdoge.xrpl.androidsa.action.STOP_CAPTURE"
+        const val ACTION_PAUSE = "com.xrdoge.xrpl.androidsa.action.PAUSE_CAPTURE"
 
         @Volatile
         private var activeSurface: Surface? = null
@@ -70,6 +82,7 @@ class StreamCaptureService : Service() {
         fun currentState(): StreamCaptureState = currentState
 
         fun requestStart(context: Context) {
+            currentState = currentState.copy(state = "need_permission", errorReason = null)
             val serviceIntent = Intent(context, StreamCaptureService::class.java).apply {
                 action = ACTION_START
             }
@@ -77,8 +90,17 @@ class StreamCaptureService : Service() {
         }
 
         fun requestStop(context: Context) {
+            currentState = currentState.copy(state = "stopped", errorReason = null)
             val serviceIntent = Intent(context, StreamCaptureService::class.java).apply {
                 action = ACTION_STOP
+            }
+            ContextCompat.startForegroundService(context, serviceIntent)
+        }
+
+        fun requestPause(context: Context) {
+            currentState = currentState.copy(state = "paused", errorReason = null)
+            val serviceIntent = Intent(context, StreamCaptureService::class.java).apply {
+                action = ACTION_PAUSE
             }
             ContextCompat.startForegroundService(context, serviceIntent)
         }
@@ -94,7 +116,7 @@ class StreamCaptureService : Service() {
                 putExtra("result_code", resultCode)
                 putExtra("data", data)
             }
-            currentState = currentState.copy(state = "starting")
+            currentState = currentState.copy(state = "starting", errorReason = null)
             ContextCompat.startForegroundService(context, serviceIntent)
         }
     }
@@ -118,6 +140,10 @@ class StreamCaptureService : Service() {
             ACTION_STOP -> {
                 stopCapture()
                 stopSelf()
+                return START_NOT_STICKY
+            }
+            ACTION_PAUSE -> {
+                currentState = currentState.copy(state = "paused", errorReason = null)
                 return START_NOT_STICKY
             }
             else -> return START_NOT_STICKY
@@ -161,16 +187,22 @@ class StreamCaptureService : Service() {
         startForeground(CaptureNotificationId, createNotification())
 
         mediaProjection = projection
-        virtualDisplay = projection.createVirtualDisplay(
-            "AndroidSA Stream Capture",
-            width,
-            height,
-            density,
-            DisplayManager.VIRTUAL_DISPLAY_FLAG_PUBLIC or DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR,
-            surface,
-            null,
-            null,
-        )
+        try {
+            virtualDisplay = projection.createVirtualDisplay(
+                "AndroidSA Stream Capture",
+                width,
+                height,
+                density,
+                DisplayManager.VIRTUAL_DISPLAY_FLAG_PUBLIC or DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR,
+                surface,
+                null,
+                null,
+            )
+        } catch (error: RuntimeException) {
+            currentState = currentState.copy(state = "error", errorReason = error.message ?: "VirtualDisplay creation failed")
+            stopSelf()
+            return
+        }
 
         currentState = StreamCaptureState(
             state = "live",
