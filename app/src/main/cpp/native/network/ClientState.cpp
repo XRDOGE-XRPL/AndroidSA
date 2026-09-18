@@ -85,8 +85,19 @@ bool extractExactCommandValue(
     std::string_view keyword,
     std::string* outValue
 ) {
-    const auto separator = normalized.find(':');
-    if (separator == std::string::npos || normalized.substr(0, separator) != keyword) {
+    const auto separator = sanitized.find(':');
+    if (separator == std::string::npos) {
+        return false;
+    }
+
+    const auto rawKeyword = sanitized.substr(0, separator);
+    if (!rawKeyword.empty() && std::any_of(rawKeyword.begin(), rawKeyword.end(), [](unsigned char ch) {
+            return std::isspace(ch);
+        })) {
+        return false;
+    }
+
+    if (normalized.substr(0, separator) != keyword) {
         return false;
     }
 
