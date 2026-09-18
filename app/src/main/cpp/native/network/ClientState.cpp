@@ -133,6 +133,23 @@ std::string packetTypeName(unsigned char packetId) {
     }
 }
 
+std::string packetPhaseName(unsigned char packetId) {
+    switch (packetId) {
+        case 0x00:
+        case 0x10:
+        case 0x1c:
+            return "handshake";
+        case 0x13:
+        case 0x15:
+        case 0x1d:
+            return "reply";
+        case 0x7d:
+            return "payload";
+        default:
+            return "idle";
+    }
+}
+
 std::vector<unsigned char> buildProbePayload() {
     return {0x7d, 0x0f, 0x00, 0x02, 0xab, 0xcd};
 }
@@ -379,7 +396,8 @@ std::string ClientState::parseRakNetLikePacket(const std::vector<unsigned char>&
 
     std::ostringstream stream;
     const auto packetId = payload[0];
-    stream << "RX " << packetTypeName(packetId);
+    protocolPhase_ = packetPhaseName(packetId);
+    stream << "RX " << packetTypeName(packetId) << " [phase=" << protocolPhase_ << "]";
 
     if (packetId == 0x7d && payload.size() >= 4) {
         const unsigned rpcId = static_cast<unsigned>(payload[1]) |
@@ -395,6 +413,7 @@ void ClientState::resetLocked() {
     transport_ = "RakNet-compatible UDP";
     state_ = "initializing";
     diagnostics_ = "NDK bootstrap complete";
+    protocolPhase_ = "idle";
     serverAddress_ = "demo.sa-mp.local:7777";
     playerName_ = "Guest";
     latencyMs_ = 0;
@@ -441,6 +460,7 @@ bool ClientState::dispatchCommand(const std::string& command) {
             return false;
         }
         ++connectionAttempts_;
+        protocolPhase_ = "handshake";
         state_ = "connected";
         int sent = 0;
         int received = 0;
@@ -464,6 +484,7 @@ bool ClientState::dispatchCommand(const std::string& command) {
         }
         serverAddress_ = serverAddress;
         ++connectionAttempts_;
+        protocolPhase_ = "handshake";
         state_ = "connected";
         int sent = 0;
         int received = 0;

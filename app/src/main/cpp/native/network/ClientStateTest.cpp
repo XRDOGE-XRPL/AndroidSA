@@ -43,6 +43,20 @@ int main() {
         return 1;
     }
 
+    const auto connectedEvents = state.recentEvents();
+    bool sawProtocolSignal = false;
+    for (const auto& event : connectedEvents) {
+        if (event.find("RakNet open connection request") != std::string::npos ||
+            event.find("Open:MP/SA:MP RPC wrapper") != std::string::npos ||
+            event.find("RakNet connected ping") != std::string::npos) {
+            sawProtocolSignal = true;
+            break;
+        }
+    }
+    if (!expect(sawProtocolSignal, "Connected UDP probes should surface RakNet/Open:MP protocol signals")) {
+        return 1;
+    }
+
     if (!expect(state.dispatchCommand("simulate:tx"), "Expected simulate:tx command to succeed")) {
         return 1;
     }

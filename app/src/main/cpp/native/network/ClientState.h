@@ -37,6 +37,7 @@ private:
     int connectionAttempts_ = 0;
     std::string lastCommand_ = "startup";
     std::string streamState_ = "idle";
+    mutable std::string protocolPhase_ = "idle";
     bool gtaRuntimeAvailable_ = true;
     std::string gtaRuntimePackage_ = "com.rockstargames.gtasager";
     std::vector<std::string> eventLog_ = {"Native runtime bootstrapped"};
