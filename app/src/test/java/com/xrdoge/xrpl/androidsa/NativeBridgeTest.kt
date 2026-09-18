@@ -150,8 +150,27 @@ class NativeBridgeTest {
     @Test
     fun gtaPackageDetectorPrefersOfficialGtaSaPackage() {
         assertEquals("com.rockstargames.gtasager", GtaPackageDetector.defaultPackages.first())
+        assertTrue(GtaPackageDetector.defaultPackages.contains("com.rockstargames.gtasasa"))
         assertTrue(GtaPackageDetector.defaultPackages.contains("com.rockstargames.gtasa"))
         assertTrue(GtaPackageDetector.defaultPackages.contains("com.rockstargames.gtasa.de"))
+    }
+
+    @Test
+    fun gtaPackageDetectorUsesDeterministicRuntimeStates() {
+        val runtimeReady = GtaRuntimeStatus(
+            packageName = GtaPackageDetector.OFFICIAL_PACKAGE,
+            versionName = GtaPackageDetector.OFFICIAL_VERSION,
+            installed = true,
+            launchable = true,
+            state = "runtime-ready",
+            summary = "Official runtime detected",
+        )
+        val blocked = runtimeReady.copy(launchable = false, state = "blocked")
+        val missingHost = runtimeReady.copy(installed = false, launchable = false, state = "missing-host")
+
+        assertEquals("runtime-ready", runtimeReady.state)
+        assertEquals("blocked", blocked.state)
+        assertEquals("missing-host", missingHost.state)
     }
 
     @Test

@@ -92,6 +92,12 @@ private data class GtaConnectionRouteStep(
     val ready: Boolean,
 )
 
+private fun runtimeHealthState(gtaStatus: GtaRuntimeStatus): String = when {
+    !gtaStatus.installed -> "missing-host"
+    !gtaStatus.launchable -> "blocked"
+    else -> "runtime-ready"
+}
+
 private fun buildGtaConnectionRoute(
     gtaStatus: GtaRuntimeStatus,
     streamState: String,
@@ -102,19 +108,23 @@ private fun buildGtaConnectionRoute(
     return listOf(
         GtaConnectionRouteStep(
             label = "Local device",
-            status = if (hostReady) "ready" else "awaiting",
+            status = when {
+                !gtaStatus.installed -> "missing-host"
+                !gtaStatus.launchable -> "blocked"
+                else -> "runtime-ready"
+            },
             detail = "Android runtime host visible on this device",
             ready = hostReady,
         ),
         GtaConnectionRouteStep(
             label = "GTA SA Mobile host",
-            status = gtaStatus.state,
+            status = runtimeHealthState(gtaStatus),
             detail = gtaStatus.summary,
             ready = gtaStatus.installed,
         ),
         GtaConnectionRouteStep(
             label = "Launch probe",
-            status = if (gtaStatus.launchable) "launchable" else "blocked",
+            status = if (gtaStatus.launchable) "runtime-ready" else "blocked",
             detail = if (gtaStatus.launchable) "Launch intent available" else "No launch intent or runtime missing",
             ready = gtaStatus.launchable,
         ),
@@ -132,11 +142,12 @@ private fun runtimeRouteSummary(
     streamState: String,
     streamSurfaceReady: Boolean,
 ): String {
+    val runtimeState = runtimeHealthState(gtaStatus)
     val streamReady = streamState in listOf("live", "paused", "starting") || streamSurfaceReady
     return when {
-        !gtaStatus.installed -> "Host missing: GTA SA Mobile is not installed on this device."
-        !gtaStatus.launchable -> "Host detected but launch intent is unavailable."
-        !streamReady -> "Host is ready; waiting for the local diagnostics stream to become active."
+        runtimeState == "missing-host" -> "Host missing: GTA SA Mobile is not installed on this device."
+        runtimeState == "blocked" -> "Host detected but launch intent is unavailable."
+        !streamReady -> "Host is runtime-ready; waiting for the local diagnostics stream to become active."
         else -> "Route ready: local host detected, launchable, and diagnostics stream active."
     }
 }
