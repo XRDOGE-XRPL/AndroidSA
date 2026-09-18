@@ -289,6 +289,20 @@ class NativeBridgeTest {
     }
 
     @Test
+    fun requireValidNativeCommandAcceptsStreamCommands() {
+        assertEquals("stream:start", requireValidNativeCommand("stream:start"))
+        assertEquals("stream:stop", requireValidNativeCommand("Stream:stop"))
+        assertEquals("stream:info", requireValidNativeCommand("stream:info"))
+    }
+
+    @Test
+    fun requireValidNativeCommandRejectsUnsupportedStreamAction() {
+        assertThrows(IllegalArgumentException::class.java) {
+            requireValidNativeCommand("stream:resume")
+        }
+    }
+
+    @Test
     fun classifyEventCategoryRecognizesKeySignals() {
         assertEquals(EventCategory.HANDSHAKE, classifyEventCategory("RX RakNet connected ping"))
         assertEquals(EventCategory.HANDSHAKE, classifyEventCategory("RakNet connection request queued"))

@@ -90,6 +90,16 @@ int main() {
         return 1;
     }
 
+    if (!expect(state.dispatchCommand("stream:info"), "Stream:info command should succeed")) {
+        return 1;
+    }
+    if (!expect(state.dispatchCommand("stream:start"), "Stream:start command should succeed when the host runtime is available")) {
+        return 1;
+    }
+    if (!expect(state.dispatchCommand("stream:stop"), "Stream:stop command should succeed")) {
+        return 1;
+    }
+
     if (!expect(state.dispatchCommand("reconnect"), "Reconnect command should succeed")) {
         return 1;
     }

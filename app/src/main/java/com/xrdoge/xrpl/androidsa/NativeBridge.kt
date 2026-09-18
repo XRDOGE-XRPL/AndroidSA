@@ -67,6 +67,14 @@ private fun canonicalizeNativeCommand(sanitized: String, normalized: String): St
             val value = requireExactValueCommand(sanitized, normalized, "simulate", "Simulate")
             "simulate:$value"
         }
+        normalized.startsWith("stream:") -> {
+            val value = requireExactValueCommand(sanitized, normalized, "stream", "Stream")
+            val normalizedValue = value.lowercase()
+            require(normalizedValue in setOf("start", "stop", "info")) {
+                "Stream command value must be start, stop, or info"
+            }
+            "stream:$normalizedValue"
+        }
         else -> sanitized
     }
 }
@@ -114,6 +122,12 @@ internal fun requireValidNativeCommand(command: String): String {
             val simulateValue = requireExactValueCommand(sanitized, normalized, "simulate", "Simulate")
             require(simulateValue.lowercase() in setOf("rx", "tx")) {
                 "Simulate command value must be rx or tx"
+            }
+        }
+        normalized.startsWith("stream:") -> {
+            val streamValue = requireExactValueCommand(sanitized, normalized, "stream", "Stream")
+            require(streamValue.lowercase() in setOf("start", "stop", "info")) {
+                "Stream command value must be start, stop, or info"
             }
         }
         else -> {

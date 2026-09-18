@@ -2,6 +2,8 @@
 
 AndroidSA ist ein Android-Prototyp für eine SA:MP-/Open:MP-orientierte Diagnose-, Probe- und Launcher-Schicht. Das Repository verbindet eine moderne Jetpack-Compose-Oberfläche mit einer Kotlin/JNI-Brücke und einem nativen C++20-Kern, um Verbindungsstatus, Serverprofile, Diagnosemeldungen, Laufzeitstatistiken, Event-Historie und echte UDP-Probe-Flows in einer klaren, testbaren Architektur zu modellieren.
 
+„AndroidSA startet und beobachtet die lokal installierte GTA-SA-Mobile-Laufzeit. Online kommt später in diese Laufzeit, nicht ins Compose-Dashboard.“
+
 ## Realistischer Projektumfang
 
 AndroidSA ist bewusst keine fertige GTA-SA-Mobile-Gameplay-Integration und kein behaupteter Open:MP-Android-Client. Der Fokus liegt auf:
@@ -146,6 +148,9 @@ Die JVM- und native Validierung akzeptieren diese Befehle mit genauer Syntax:
 - `player:<name>`
 - `latency:<ms>`
 - `diagnostics:<text>`
+- `stream:start`
+- `stream:stop`
+- `stream:info`
 - `simulate:rx`
 - `simulate:tx`
 - `fail:<reason>`

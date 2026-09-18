@@ -1,6 +1,8 @@
 package com.xrdoge.xrpl.androidsa
 
 import android.content.Context
+import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import java.util.Locale
@@ -45,6 +47,63 @@ import kotlinx.coroutines.withContext
 
 private const val MaxUiRecentEvents = 12
 private const val ServerProfilesPreferencesKey = "androidsa_server_profiles"
+private const val GtaSaMobilePackageName = "com.rockstargames.gtasager"
+
+private data class GtaRuntimeStatus(
+    val packageName: String,
+    val versionName: String,
+    val installed: Boolean,
+    val launchable: Boolean,
+    val summary: String,
+)
+
+private fun detectGtaRuntime(context: Context): GtaRuntimeStatus {
+    return try {
+        val packageManager = context.packageManager
+        val packageInfo = packageManager.getPackageInfo(GtaSaMobilePackageName, 0)
+        val launchIntent = packageManager.getLaunchIntentForPackage(GtaSaMobilePackageName)
+        GtaRuntimeStatus(
+            packageName = GtaSaMobilePackageName,
+            versionName = packageInfo.versionName ?: "unknown",
+            installed = true,
+            launchable = launchIntent != null,
+            summary = if (launchIntent != null) {
+                "GTA SA Mobile runtime is installed and launchable on this device (version ${packageInfo.versionName ?: "unknown"})."
+            } else {
+                "GTA SA Mobile runtime is installed but has no launch intent (version ${packageInfo.versionName ?: "unknown"})."
+            },
+        )
+    } catch (_: Exception) {
+        GtaRuntimeStatus(
+            packageName = GtaSaMobilePackageName,
+            versionName = "missing",
+            installed = false,
+            launchable = false,
+            summary = "GTA SA Mobile runtime is not installed on this device. Install the app first, then start a local stream from AndroidSA.",
+        )
+    }
+}
+
+private fun launchGtaRuntime(context: Context): Boolean {
+    val runtimeStatus = detectGtaRuntime(context)
+    if (!runtimeStatus.installed) {
+        val storeIntent = Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=${runtimeStatus.packageName}"))
+        return try {
+            context.startActivity(storeIntent)
+            false
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    val launchIntent = context.packageManager.getLaunchIntentForPackage(runtimeStatus.packageName) ?: return false
+    return try {
+        context.startActivity(launchIntent)
+        true
+    } catch (_: Exception) {
+        false
+    }
+}
 
 private data class ServerProfile(
     val id: String,
@@ -323,6 +382,7 @@ private fun AndroidSAApp() {
     var commandJob by remember { mutableStateOf<Job?>(null) }
     var commandInFlight by remember { mutableStateOf<String?>(null) }
     var eventFilter by remember { mutableStateOf(EventCategory.ALL) }
+    val gtaRuntimeStatus = remember(context) { detectGtaRuntime(context) }
     val commandMutex = remember { Mutex() }
     val scope = rememberCoroutineScope()
     LaunchedEffect(serverProfiles) {
@@ -612,6 +672,36 @@ private fun AndroidSAApp() {
                     }
                 }
             }
+            SectionCard(title = "Naht B: GTA SA Mobile host") {
+                Text("Host package: ${gtaRuntimeStatus.packageName}")
+                Text("Version: ${gtaRuntimeStatus.versionName}")
+                Text("Launch intent: ${if (gtaRuntimeStatus.launchable) "available" else "unavailable"}")
+                Text(gtaRuntimeStatus.summary)
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    ActionButton(
+                        label = if (gtaRuntimeStatus.installed) "Launch host" else "Install host",
+                        enabled = !isBusy,
+                    ) {
+                        val launched = launchGtaRuntime(context)
+                        if (launched) {
+                            dispatchPreset("stream:start")
+                        } else if (!gtaRuntimeStatus.installed) {
+                            applyLocalError("GTA SA Mobile runtime missing: install ${GtaSaMobilePackageName} first")
+                        } else {
+                            applyLocalError("GTA SA Mobile launch intent is unavailable on this device")
+                        }
+                    }
+                    ActionButton(label = "Stream start", enabled = !isBusy) {
+                        dispatchPreset("stream:start")
+                    }
+                    ActionButton(label = "Stream stop", enabled = !isBusy) {
+                        dispatchPreset("stream:stop")
+                    }
+                    ActionButton(label = "Stream info", enabled = !isBusy) {
+                        dispatchPreset("stream:info")
+                    }
+                }
+            }
             SectionCard(title = "Guided controls") {
                 SectionCard(title = "Server browser") {
                     OutlinedTextField(
@@ -823,7 +913,7 @@ private fun AndroidSAApp() {
                     supportingText = {
                         Text(
                             commandError
-                                ?: "Examples: ping, connect, connect:demo.sa-mp.local:7777, player:Guest, transport:udp, latency:42, diagnostics:ok, simulate:rx"
+                                ?: "Examples: ping, connect, connect:demo.sa-mp.local:7777, player:Guest, transport:udp, latency:42, diagnostics:ok, simulate:rx, stream:start, stream:stop, stream:info"
                         )
                     },
                     modifier = Modifier.fillMaxWidth(),
