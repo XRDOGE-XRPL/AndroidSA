@@ -523,8 +523,24 @@ bool ClientState::dispatchCommand(const std::string& command) {
         eventMessage = "Session reset to initial state";
     } else if (normalized == "status") {
         diagnostics_ = "Status snapshot ready for " + playerName_ + " on " + serverAddress_ +
-                       " (udp=" + std::string(udpRuntimeReady_ ? "ready" : "offline") + ")";
+                       " (udp=" + std::string(udpRuntimeReady_ ? "ready" : "offline") + ", protocol=" + protocolPhase_ + ")";
         eventMessage = "Status snapshot refreshed";
+    } else if (normalized == "protocol" || startsWith(normalized, "protocol:")) {
+        std::string protocolValue;
+        if (!extractExactCommandValue(sanitized, normalized, "protocol", &protocolValue)) {
+            return false;
+        }
+        const auto protocolState = lower(protocolValue);
+        if (protocolState == "status") {
+            diagnostics_ = "Protocol observer phase: " + protocolPhase_ + " (host diagnostics mode)";
+            eventMessage = "Protocol observer status refreshed";
+        } else if (protocolState == "idle" || protocolState == "handshake" || protocolState == "reply" || protocolState == "payload") {
+            protocolPhase_ = protocolState;
+            diagnostics_ = "Protocol observer phase set to " + protocolState + " (diagnostic only)";
+            eventMessage = "Protocol observer phase updated to " + protocolState;
+        } else {
+            return false;
+        }
     } else if (normalized == "stream" || startsWith(normalized, "stream:")) {
         std::string streamAction;
         if (!extractExactCommandValue(sanitized, normalized, "stream", &streamAction)) {

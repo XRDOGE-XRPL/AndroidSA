@@ -104,6 +104,17 @@ int main() {
         return 1;
     }
 
+    if (!expect(state.dispatchCommand("protocol:handshake"), "Protocol:handshake command should succeed")) {
+        return 1;
+    }
+    if (!expect(state.dispatchCommand("protocol:status"), "Protocol:status command should succeed")) {
+        return 1;
+    }
+    const auto protocolSummary = parseSummary(state.summary());
+    if (!expect(protocolSummary[3].find("Protocol observer phase: handshake") == 0, "Protocol status should report the active diagnostic phase")) {
+        return 1;
+    }
+
     if (!expect(state.dispatchCommand("stream:info"), "Stream:info command should succeed")) {
         return 1;
     }

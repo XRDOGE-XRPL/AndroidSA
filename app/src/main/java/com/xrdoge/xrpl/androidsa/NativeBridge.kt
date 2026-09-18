@@ -67,6 +67,14 @@ private fun canonicalizeNativeCommand(sanitized: String, normalized: String): St
             val value = requireExactValueCommand(sanitized, normalized, "simulate", "Simulate")
             "simulate:$value"
         }
+        normalized.startsWith("protocol:") -> {
+            val value = requireExactValueCommand(sanitized, normalized, "protocol", "Protocol")
+            val normalizedValue = value.lowercase()
+            when {
+                normalizedValue in setOf("idle", "handshake", "reply", "payload", "status") -> "protocol:$normalizedValue"
+                else -> throw IllegalArgumentException("Protocol command value must be idle, handshake, reply, payload, or status")
+            }
+        }
         normalized.startsWith("stream:") -> {
             val value = requireExactValueCommand(sanitized, normalized, "stream", "Stream")
             val normalizedValue = value.lowercase()
@@ -127,6 +135,12 @@ internal fun requireValidNativeCommand(command: String): String {
             val simulateValue = requireExactValueCommand(sanitized, normalized, "simulate", "Simulate")
             require(simulateValue.lowercase() in setOf("rx", "tx")) {
                 "Simulate command value must be rx or tx"
+            }
+        }
+        normalized.startsWith("protocol:") -> {
+            val protocolValue = requireExactValueCommand(sanitized, normalized, "protocol", "Protocol")
+            require(protocolValue.lowercase() in setOf("idle", "handshake", "reply", "payload", "status")) {
+                "Protocol command value must be idle, handshake, reply, payload, or status"
             }
         }
         normalized.startsWith("stream:") -> {
