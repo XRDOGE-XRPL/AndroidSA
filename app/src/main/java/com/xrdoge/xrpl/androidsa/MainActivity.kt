@@ -397,6 +397,51 @@ private data class RakNetProtocolState(
         get() = if (observedSignals.isEmpty()) "idle" else observedSignals.joinToString(" / ")
 }
 
+private data class QuerySignalAnalysisRow(
+    val phase: String,
+    val marker: String,
+    val evidence: String,
+    val detected: Boolean,
+    val confidence: String,
+)
+
+internal fun buildQuerySignalAnalysis(recentEvents: List<String>): List<QuerySignalAnalysisRow> {
+    val eventText = recentEvents.joinToString("\n").lowercase(Locale.US)
+    val signalRows = listOf(
+        QuerySignalAnalysisRow(
+            phase = "handshake",
+            marker = "0x00 / 0x1c",
+            evidence = "connected ping and connection request",
+            detected = eventText.contains("0x00") || eventText.contains("connected ping") ||
+                eventText.contains("0x1c") || eventText.contains("open connection request"),
+            confidence = if (eventText.contains("0x00") || eventText.contains("connected ping") ||
+                eventText.contains("0x1c") || eventText.contains("open connection request")) "high" else "low",
+        ),
+        QuerySignalAnalysisRow(
+            phase = "reply",
+            marker = "0x1d",
+            evidence = "server reply / connection acceptance",
+            detected = eventText.contains("0x1d") || eventText.contains("open connection reply") ||
+                eventText.contains("connection accepted") || eventText.contains("reply"),
+            confidence = if (eventText.contains("0x1d") || eventText.contains("open connection reply") ||
+                eventText.contains("connection accepted") || eventText.contains("reply")) "high" else "low",
+        ),
+        QuerySignalAnalysisRow(
+            phase = "payload",
+            marker = "0x7d",
+            evidence = "RPC wrapper / payload inspection",
+            detected = eventText.contains("0x7d") || eventText.contains("rpc wrapper") ||
+                eventText.contains("payload") || eventText.contains("rpc packet"),
+            confidence = if (eventText.contains("0x7d") || eventText.contains("rpc wrapper") ||
+                eventText.contains("payload") || eventText.contains("rpc packet")) "high" else "low",
+        ),
+    )
+    return signalRows.map { row ->
+        val statusText = if (row.detected) "detected" else "waiting"
+        row.copy(confidence = if (row.detected) row.confidence else "idle")
+    }
+}
+
 internal fun buildRakNetProtocolState(recentEvents: List<String>): RakNetProtocolState {
     val eventText = recentEvents.joinToString("\n").lowercase(Locale.US)
     val normalizedEventText = eventText.replace(" / ", "/")
@@ -917,6 +962,41 @@ private fun AndroidSAApp() {
                             )
                             Text(
                                 text = insight.description,
+                                style = MaterialTheme.typography.bodySmall,
+                            )
+                        }
+                    }
+                }
+            }
+            SectionCard(title = "Query / signal analysis") {
+                val querySignals = buildQuerySignalAnalysis(snapshot.recentEvents)
+                querySignals.forEach { signal ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                            Text(
+                                text = "${signal.phase} · ${signal.marker}",
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.SemiBold,
+                            )
+                            Text(
+                                text = signal.evidence,
+                                style = MaterialTheme.typography.bodySmall,
+                            )
+                        }
+                        Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                            Text(
+                                text = if (signal.detected) "detected" else "waiting",
+                                color = if (signal.detected) Color(0xFF2E7D32) else Color(0xFF616161),
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.Bold,
+                            )
+                            Text(
+                                text = signal.confidence,
+                                color = if (signal.detected) Color(0xFF90CAF9) else Color(0xFFB0BEC5),
                                 style = MaterialTheme.typography.bodySmall,
                             )
                         }

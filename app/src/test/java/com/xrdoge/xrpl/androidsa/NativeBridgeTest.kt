@@ -380,6 +380,27 @@ class NativeBridgeTest {
     }
 
     @Test
+    fun buildQuerySignalAnalysisTracksDetailedPhaseEvidence() {
+        val analysis = buildQuerySignalAnalysis(
+            listOf(
+                "RX RakNet connected ping",
+                "RakNet open connection request",
+                "Open connection reply received",
+                "RX Open:MP/SA:MP RPC wrapper",
+            ),
+        )
+
+        assertEquals(3, analysis.size)
+        assertEquals("handshake", analysis[0].phase)
+        assertEquals("0x00 / 0x1c", analysis[0].marker)
+        assertTrue(analysis[0].detected)
+        assertEquals("reply", analysis[1].phase)
+        assertTrue(analysis[1].detected)
+        assertEquals("payload", analysis[2].phase)
+        assertTrue(analysis[2].detected)
+    }
+
+    @Test
     fun requireValidNativeCommandRejectsMissingFailSeparator() {
         assertThrows(IllegalArgumentException::class.java) {
             requireValidNativeCommand("fail")
