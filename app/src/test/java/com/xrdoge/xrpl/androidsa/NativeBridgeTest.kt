@@ -148,6 +148,31 @@ class NativeBridgeTest {
     }
 
     @Test
+    fun normalizeNativeSnapshotPromotesTimedOutAndDisconnectedDiagnosticsToErrorState() {
+        val snapshot = NativeClientSnapshot(
+            overview = NativeOverview(
+                clientName = "AndroidSA",
+                transport = "udp",
+                connectionState = "connected",
+                diagnostics = "Remote UDP receive timed out for demo.sa-mp.local:7777; server may be disconnected",
+                serverAddress = "demo.sa-mp.local:7777",
+                playerName = "Guest",
+                latencyMs = 0,
+                packetsSent = 0,
+                packetsReceived = 0,
+                connectionAttempts = 1,
+                lastCommand = "connect",
+            ),
+            recentEvents = listOf("Remote UDP receive timed out; server may be disconnected"),
+        )
+
+        val normalized = normalizeNativeSnapshot(snapshot)
+
+        assertEquals("error", normalized.overview.connectionState)
+        assertTrue(normalized.overview.diagnostics.contains("timed out") || normalized.overview.diagnostics.contains("disconnected"))
+    }
+
+    @Test
     fun gtaPackageDetectorPrefersOfficialGtaSaPackage() {
         assertEquals("com.rockstargames.gtasager", GtaPackageDetector.defaultPackages.first())
         assertTrue(GtaPackageDetector.defaultPackages.contains("com.rockstargames.gtasasa"))
@@ -359,6 +384,7 @@ class NativeBridgeTest {
         assertEquals(EventCategory.REPLY, classifyEventCategory("RakNet connection accepted by server"))
         assertEquals(EventCategory.PAYLOAD, classifyEventCategory("RX Open:MP/SA:MP RPC wrapper"))
         assertEquals(EventCategory.WARNING, classifyEventCategory("UDP timeout while waiting for reply"))
+        assertEquals(EventCategory.WARNING, classifyEventCategory("Remote UDP receive timed out; server may be disconnected"))
         assertEquals(EventCategory.DIAGNOSTIC, classifyEventCategory("Session reset to initial state"))
     }
 

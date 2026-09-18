@@ -222,7 +222,10 @@ private fun diagnosticsIndicateNativeFailure(diagnostics: String): Boolean {
     return normalized.contains("failed") ||
         normalized.contains("failure") ||
         normalized.contains("timeout") ||
-        normalized.contains("rejected")
+        normalized.contains("timed out") ||
+        normalized.contains("rejected") ||
+        normalized.contains("disconnected") ||
+        normalized.contains("unreachable")
 }
 
 internal fun normalizeNativeSnapshot(snapshot: NativeClientSnapshot): NativeClientSnapshot {

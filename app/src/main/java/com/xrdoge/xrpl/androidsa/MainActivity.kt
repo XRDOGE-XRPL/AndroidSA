@@ -213,9 +213,10 @@ internal enum class EventCategory(val label: String) {
 internal fun classifyEventCategory(event: String): EventCategory {
     val normalized = event.lowercase()
     return when {
-        normalized.contains("timeout") -> EventCategory.WARNING
+        normalized.contains("timeout") || normalized.contains("timed out") -> EventCategory.WARNING
         normalized.contains("failed") || normalized.contains("error") ||
-            normalized.contains("rejected") || normalized.contains("disconnected") -> EventCategory.ERROR
+            normalized.contains("rejected") || normalized.contains("disconnected") ||
+            normalized.contains("unreachable") -> EventCategory.ERROR
         normalized.contains("connected ping") || normalized.contains("connection request") ||
             normalized.contains("open connection request") || normalized.contains("handshake") ||
             normalized.contains("0x00") || normalized.contains("0x10") || normalized.contains("0x1c") -> EventCategory.HANDSHAKE
@@ -302,7 +303,7 @@ private fun classifyServerHealth(profile: ServerProfile): ServerHealthStatus {
     return when {
         normalizedState.contains("connected") && (profile.lastLatencyMs == null || profile.lastLatencyMs <= 150) -> ServerHealthStatus.HEALTHY
         normalizedState.contains("connected") && profile.lastLatencyMs != null && profile.lastLatencyMs <= 500 -> ServerHealthStatus.SLOW
-        normalizedState.contains("timeout") || normalizedState.contains("error") || normalizedState.contains("failed") || normalizedState.contains("disconnected") -> ServerHealthStatus.UNREACHABLE
+        normalizedState.contains("timeout") || normalizedState.contains("timed out") || normalizedState.contains("error") || normalizedState.contains("failed") || normalizedState.contains("disconnected") -> ServerHealthStatus.UNREACHABLE
         else -> ServerHealthStatus.UNKNOWN
     }
 }
@@ -316,7 +317,7 @@ private fun serverHealthColor(status: ServerHealthStatus): Color = when (status)
 
 private fun classifyProbeResult(profile: ServerProfile, recentEvents: List<String>): ProbeResult {
     val normalizedState = profile.lastState.lowercase()
-    if (normalizedState.contains("timeout") || normalizedState.contains("error") || normalizedState.contains("failed")) {
+    if (normalizedState.contains("timeout") || normalizedState.contains("timed out") || normalizedState.contains("error") || normalizedState.contains("failed")) {
         return ProbeResult.TIMEOUT
     }
 
@@ -333,7 +334,7 @@ private fun classifyProbeResult(profile: ServerProfile, recentEvents: List<Strin
 private fun buildProbeTimeline(profile: ServerProfile, recentEvents: List<String>): List<String> {
     val normalizedState = profile.lastState.lowercase()
     val sequence = mutableListOf<String>()
-    if (normalizedState.contains("timeout") || normalizedState.contains("error") || normalizedState.contains("failed")) {
+    if (normalizedState.contains("timeout") || normalizedState.contains("timed out") || normalizedState.contains("error") || normalizedState.contains("failed")) {
         sequence += "timeout after handshake attempt"
         return sequence
     }
@@ -380,6 +381,7 @@ private fun classifyRakNetSignalState(signal: RakNetSignal, recentEvents: List<S
 
     return when {
         matchingEvent.contains("timeout", ignoreCase = true) ||
+            matchingEvent.contains("timed out", ignoreCase = true) ||
             matchingEvent.contains("malformed", ignoreCase = true) -> RakNetSignalState.TIMEOUT
         matchingEvent.contains("open connection reply", ignoreCase = true) ||
             matchingEvent.contains("reply", ignoreCase = true) -> RakNetSignalState.REPLY
