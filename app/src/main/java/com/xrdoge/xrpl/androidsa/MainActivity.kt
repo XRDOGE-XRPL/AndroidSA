@@ -11,7 +11,9 @@ import android.view.TextureView
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
@@ -20,6 +22,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
@@ -81,6 +84,48 @@ private data class GtaRuntimePathEntry(
     val label: String,
     val value: String,
 )
+
+private data class GtaConnectionRouteStep(
+    val label: String,
+    val status: String,
+    val detail: String,
+    val ready: Boolean,
+)
+
+private fun buildGtaConnectionRoute(
+    gtaStatus: GtaRuntimeStatus,
+    streamState: String,
+    streamSurfaceReady: Boolean,
+): List<GtaConnectionRouteStep> {
+    val hostReady = gtaStatus.installed && gtaStatus.launchable
+    val streamReady = streamState in listOf("live", "paused", "starting") || streamSurfaceReady
+    return listOf(
+        GtaConnectionRouteStep(
+            label = "Local device",
+            status = if (hostReady) "ready" else "awaiting",
+            detail = "Android runtime host visible on this device",
+            ready = hostReady,
+        ),
+        GtaConnectionRouteStep(
+            label = "GTA SA Mobile host",
+            status = gtaStatus.state,
+            detail = gtaStatus.summary,
+            ready = gtaStatus.installed,
+        ),
+        GtaConnectionRouteStep(
+            label = "Launch probe",
+            status = if (gtaStatus.launchable) "launchable" else "blocked",
+            detail = if (gtaStatus.launchable) "Launch intent available" else "No launch intent or runtime missing",
+            ready = gtaStatus.launchable,
+        ),
+        GtaConnectionRouteStep(
+            label = "Stream diagnostics",
+            status = streamState.ifBlank { "idle" },
+            detail = if (streamReady) "Local capture/surface state is active" else "Waiting for local stream state",
+            ready = streamReady,
+        ),
+    )
+}
 
 private fun runtimePathEntries(context: Context, packageName: String): List<GtaRuntimePathEntry> {
     return try {
@@ -713,6 +758,12 @@ private fun AndroidSAApp() {
                 }
             }
             SectionCard(title = "GTA connection & path finder") {
+                val routeSteps = buildGtaConnectionRoute(
+                    gtaStatus = gtaRuntimeStatus,
+                    streamState = streamCaptureState.state,
+                    streamSurfaceReady = streamSurfaceReady,
+                )
+
                 Text(
                     text = "Connection route: local device -> GTA SA Mobile host -> launch probe -> diagnostics stream",
                     style = MaterialTheme.typography.bodySmall,
@@ -735,6 +786,34 @@ private fun AndroidSAApp() {
                         launchGtaRuntime(context)
                     }
                 }
+
+                routeSteps.forEach { step ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(12.dp)
+                                .background(
+                                    if (step.ready) Color(0xFF2E7D32) else Color(0xFF616161),
+                                ),
+                        )
+                        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                            Text(
+                                text = step.label,
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.SemiBold,
+                            )
+                            Text(
+                                text = "${step.status} · ${step.detail}",
+                                style = MaterialTheme.typography.bodySmall,
+                            )
+                        }
+                    }
+                }
+
                 gtaRuntimePathEntries.forEach { entry ->
                     Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                         Text(
