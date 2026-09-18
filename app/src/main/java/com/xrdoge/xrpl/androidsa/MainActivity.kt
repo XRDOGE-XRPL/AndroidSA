@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -851,9 +852,21 @@ private fun AndroidSAApp() {
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     EventCategory.entries.forEach { category ->
+                        val isSelected = eventFilter == category
                         Button(
                             modifier = Modifier.weight(1f),
                             enabled = true,
+                            colors = if (isSelected) {
+                                ButtonDefaults.buttonColors(
+                                    containerColor = Color(0xFF1976D2),
+                                    contentColor = Color(0xFFFFFFFF),
+                                )
+                            } else {
+                                ButtonDefaults.buttonColors(
+                                    containerColor = Color(0xFF2C2C2C),
+                                    contentColor = Color(0xFFEAEAEA),
+                                )
+                            },
                             onClick = { eventFilter = category },
                         ) {
                             Text("${category.label} (${eventCounts[category] ?: 0})")
