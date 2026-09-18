@@ -681,6 +681,8 @@ private fun AndroidSAApp() {
                 val streamState = streamCaptureState.state
                 val streamFps = "${streamCaptureState.captureFps} fps"
                 val captureLatencyMs = "${streamCaptureState.captureLatencyMs} ms"
+                val streamGeometry = "${streamCaptureState.frameWidth}x${streamCaptureState.frameHeight}"
+                val streamSurfaceState = if (streamSurfaceReady) "ready" else "waiting"
 
                 AndroidView(
                     factory = { ctx ->
@@ -717,6 +719,8 @@ private fun AndroidSAApp() {
                 Text("Launch intent: ${if (gtaRuntimeStatus.launchable) "available" else "unavailable"}")
                 Text(gtaRuntimeStatus.summary)
                 Text("Capture status: ${streamCaptureState.description()}")
+                Text("Capture geometry: $streamGeometry · Surface: $streamSurfaceState")
+                Text("Capture metrics: FPS ${streamCaptureState.captureFps}, latency ${streamCaptureState.captureLatencyMs} ms, dropped ${streamCaptureState.droppedFrames} frames")
                 if (streamCaptureState.errorReason != null) {
                     Text("Stream error: ${streamCaptureState.errorReason}", color = Color(0xFFD32F2F))
                 }

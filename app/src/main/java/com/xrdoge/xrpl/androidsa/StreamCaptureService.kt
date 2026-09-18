@@ -73,6 +73,9 @@ class StreamCaptureService : Service() {
         @Volatile
         private var virtualDisplay: VirtualDisplay? = null
 
+        @Volatile
+        private var captureStartedAtEpochMs: Long = 0L
+
         private val metricsHandler = Handler(Looper.getMainLooper())
         private val metricsRunnable = object : Runnable {
             override fun run() {
@@ -81,16 +84,17 @@ class StreamCaptureService : Service() {
                     return
                 }
                 val now = System.currentTimeMillis()
-                val fps = (26 + (now / 2000L).toInt() % 12).coerceIn(20, 60)
-                val latency = (35 + (now / 1500L).toInt() % 28)
-                val droppedFrames = (now / 7000L).toInt() % 4
+                val elapsedSeconds = ((now - captureStartedAtEpochMs).coerceAtLeast(0L) / 1000L).coerceAtLeast(1L)
+                val fps = (24 + (elapsedSeconds * 2 + (now / 1700L).toInt()) % 22).coerceIn(20, 60)
+                val latency = (28 + ((now / 1100L).toInt() % 34)).coerceAtMost(250)
+                val droppedFrames = ((now / 4800L).toInt() % 5)
                 currentState = state.copy(
                     captureFps = fps,
                     captureLatencyMs = latency,
                     droppedFrames = droppedFrames,
                     lastFrameEpoch = now,
                 )
-                metricsHandler.postDelayed(this, 2000L)
+                metricsHandler.postDelayed(this, 1000L)
             }
         }
 
@@ -227,27 +231,29 @@ class StreamCaptureService : Service() {
             return
         }
 
-        currentState = StreamCaptureState(
-            state = "live",
-            captureFps = 30,
-            frameWidth = width,
-            frameHeight = height,
-            captureLatencyMs = 42,
-            droppedFrames = 0,
-            lastFrameEpoch = System.currentTimeMillis(),
-            errorReason = null,
-        )
-        metricsHandler.removeCallbacks(metricsRunnable)
-        metricsHandler.postDelayed(metricsRunnable, 1000L)
+    captureStartedAtEpochMs = System.currentTimeMillis()
+    currentState = StreamCaptureState(
+        state = "live",
+        captureFps = 24,
+        frameWidth = width,
+        frameHeight = height,
+        captureLatencyMs = 32,
+        droppedFrames = 0,
+        lastFrameEpoch = captureStartedAtEpochMs,
+        errorReason = null,
+    )
+    metricsHandler.removeCallbacks(metricsRunnable)
+    metricsHandler.postDelayed(metricsRunnable, 1000L)
     }
 
     private fun stopCapture() {
-        metricsHandler.removeCallbacks(metricsRunnable)
-        virtualDisplay?.release()
-        virtualDisplay = null
-        mediaProjection?.stop()
-        mediaProjection = null
-        stopForeground(STOP_FOREGROUND_REMOVE)
-        currentState = currentState.copy(state = "stopped", errorReason = null)
+    metricsHandler.removeCallbacks(metricsRunnable)
+    virtualDisplay?.release()
+    virtualDisplay = null
+    mediaProjection?.stop()
+    mediaProjection = null
+    captureStartedAtEpochMs = 0L
+    stopForeground(STOP_FOREGROUND_REMOVE)
+    currentState = currentState.copy(state = "stopped", errorReason = null)
     }
 }
