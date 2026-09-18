@@ -675,9 +675,7 @@ bool ClientState::dispatchCommand(const std::string& command) {
             return false;
         }
     } else {
-        state_ = "command:" + sanitized;
-        diagnostics_ = "Last JNI command: " + sanitized;
-        eventMessage = "Generic command dispatched: " + sanitized;
+        return false;
     }
 
     lastCommand_ = canonicalizeAcceptedCommand(sanitized, normalized);
