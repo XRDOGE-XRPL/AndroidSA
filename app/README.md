@@ -6,6 +6,17 @@ Das Modul `app` enthält die vollständige Android-Anwendung. Hier laufen Compos
 
 Das App-Modul dient als Android-Hülle für den nativen AndroidSA-Diagnose-/Serverstatus-Zustand. Es zeigt Runtime-Daten an, validiert Nutzerkommandos vor dem JNI-Aufruf und synchronisiert UI-Eingaben mit dem Snapshot aus dem nativen Layer.
 
+## Aktueller Scope des Moduls
+
+Das App-Modul ist aktuell auf den klaren Naht-B-/Runtime-Shell-Scope fixiert:
+
+- Phase 1: Host-Erkennung und Launch für die lokale GTA-SA-Mobile-Laufzeit
+- Manifest-Queries nur auf die offiziellen Host-Pakete der Android-App
+- Host-Status im UI: Package, Version, Launch-Intent, lokale Laufzeit- und Stream-Info
+- Phase 2: nur Surface-/Capture-/Status-Flow, kein Multiplayer-Client, kein Join, kein Sync
+
+Damit bleibt die App eine lokale Host-/Diagnose-Schicht, die den GTA-SA-Mobile-Host nur erkennt, startet und beobachtet, aber keine echte spielbare GTA-Client-Integration anbietet.
+
 ## Produktgrenzen und realistischer Scope
 
 Das Modul ist bewusst keine GTA-SA-Mobile-Spielclient-Implementierung. Es ist eine Server-/Status-/Launcher-Schicht für:

@@ -684,6 +684,17 @@ private fun AndroidSAApp() {
                 val streamGeometry = "${streamCaptureState.frameWidth}x${streamCaptureState.frameHeight}"
                 val streamSurfaceState = if (streamSurfaceReady) "ready" else "waiting"
 
+                Text(
+                    text = "Scope: local host detection + launch only; no join/sync, no GTA V, no Play Core, no gameplay-client integration.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color(0xFF1565C0),
+                )
+                Text(
+                    text = "Phase 2 stays local: capture/surface status and runtime info only, never a multiplayer client.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color(0xFF2E7D32),
+                )
+
                 AndroidView(
                     factory = { ctx ->
                         TextureView(ctx).apply {

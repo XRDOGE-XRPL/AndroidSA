@@ -2,6 +2,24 @@
 
 Alle relevanten Änderungen dieses Projekts werden in dieser Datei dokumentiert.
 
+## [Current scope / Naht B runtime shell]
+
+### Added
+
+- klare aktuelle Abgrenzung zwischen Phase 1 (`Detect + Launch`) und Phase 2 (`local capture/surface status only`)
+- Host- und Launch-Status im UI mit explizitem Hinweis auf `no join/sync`, `no GTA V`, `no Play Core`, `no gameplay-client integration`
+- Doku-Abschnitte in `README.md`, `app/README.md` und `app/src/main/cpp/README.md`, die den aktuellen lokalen Runtime-Host-Scope widerspiegeln
+
+### Changed
+
+- `MainActivity` zeigt jetzt den Scope-Hinweis für den lokalen Host-Launcher direkt im Host-Card an
+- Projekt-Dokumentation auf den aktuellen Stand des Naht-B-/Runtime-Shell-Scopes synchronisiert
+
+### Guardrails
+
+- kein Join, kein Sync, kein GTA-V-Pfad, kein Play Core gegen GTA, kein QUERY_ALL_PACKAGES, keine GTA-Assets im Repo
+- `stream:start|stop|pause|info` bleiben auf dem lokalen Diagnose-/Capture-Pfad und kein realer Multiplayer-Client-Pfad
+
 ## [Naht B / Host Runtime Scope]
 
 ### Added
