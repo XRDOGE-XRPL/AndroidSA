@@ -2,6 +2,17 @@
 
 Der Ordner `app/src/main/cpp` enthält den nativen Kern von AndroidSA. Hier liegen JNI-Einstiegspunkte, Logging, Zustandsverwaltung, UDP-Probing und native Host-Tests.
 
+## Aktueller Native-Status
+
+Der native Layer ist derzeit auf den lokalen Runtime-Host-Scope ausgerichtet:
+
+- Host-Erkennung und Launch-Status der GTA-SA-Mobile-Laufzeit auf demselben Gerät
+- `stream:info` liefert Runtime-/Package-/Launch-Daten für lokale Diagnose
+- `stream:start|stop|pause|info` bleibt im lokalen Capture-/Status-Pfad und nicht im Gameplay-Client-Pfad
+- keine GTA-Client-Synchronisation, kein Join, kein Multiplayer-Backend, kein GTA-V-Pfad
+
+Damit bleibt der C++-Kern eine diagnostische Runtime-/Status-Schicht und kein echter Spielclient.
+
 ## Umfang und reale Grenzen
 
 Der native Layer arbeitet bewusst auf der Ebene von Diagnose, Status und Server-/Netzwerk-Interaktion. Er kann:
@@ -70,6 +81,12 @@ Dieses Format wird direkt in Kotlin weiterverarbeitet. Änderungen daran erforde
 - `diagnostics:<text>`
 - `player:<name>`
 - `latency:<ms>`
+- `protocol:<idle|handshake|reply|payload|status>`
+- `stream:start`
+- `stream:stop`
+- `stream:pause`
+- `stream:info`
+- `stream:source:<package>`
 - `fail:<reason>`
 - `simulate:rx`
 - `simulate:tx`

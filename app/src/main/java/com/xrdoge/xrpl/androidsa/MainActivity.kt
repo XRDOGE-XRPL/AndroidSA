@@ -11,7 +11,9 @@ import android.view.TextureView
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
@@ -20,6 +22,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
@@ -76,6 +79,94 @@ private data class ServerProfile(
     val lastState: String = "unknown",
     val probeHistory: List<String> = emptyList(),
 )
+
+private data class GtaRuntimePathEntry(
+    val label: String,
+    val value: String,
+)
+
+private data class GtaConnectionRouteStep(
+    val label: String,
+    val status: String,
+    val detail: String,
+    val ready: Boolean,
+)
+
+private fun buildGtaConnectionRoute(
+    gtaStatus: GtaRuntimeStatus,
+    streamState: String,
+    streamSurfaceReady: Boolean,
+): List<GtaConnectionRouteStep> {
+    val hostReady = gtaStatus.installed && gtaStatus.launchable
+    val streamReady = streamState in listOf("live", "paused", "starting") || streamSurfaceReady
+    return listOf(
+        GtaConnectionRouteStep(
+            label = "Local device",
+            status = if (hostReady) "ready" else "awaiting",
+            detail = "Android runtime host visible on this device",
+            ready = hostReady,
+        ),
+        GtaConnectionRouteStep(
+            label = "GTA SA Mobile host",
+            status = gtaStatus.state,
+            detail = gtaStatus.summary,
+            ready = gtaStatus.installed,
+        ),
+        GtaConnectionRouteStep(
+            label = "Launch probe",
+            status = if (gtaStatus.launchable) "launchable" else "blocked",
+            detail = if (gtaStatus.launchable) "Launch intent available" else "No launch intent or runtime missing",
+            ready = gtaStatus.launchable,
+        ),
+        GtaConnectionRouteStep(
+            label = "Stream diagnostics",
+            status = streamState.ifBlank { "idle" },
+            detail = if (streamReady) "Local capture/surface state is active" else "Waiting for local stream state",
+            ready = streamReady,
+        ),
+    )
+}
+
+private fun runtimeRouteSummary(
+    gtaStatus: GtaRuntimeStatus,
+    streamState: String,
+    streamSurfaceReady: Boolean,
+): String {
+    val streamReady = streamState in listOf("live", "paused", "starting") || streamSurfaceReady
+    return when {
+        !gtaStatus.installed -> "Host missing: GTA SA Mobile is not installed on this device."
+        !gtaStatus.launchable -> "Host detected but launch intent is unavailable."
+        !streamReady -> "Host is ready; waiting for the local diagnostics stream to become active."
+        else -> "Route ready: local host detected, launchable, and diagnostics stream active."
+    }
+}
+
+private fun runtimePathEntries(context: Context, packageName: String): List<GtaRuntimePathEntry> {
+    return try {
+        val pm = context.packageManager
+        val pkg = pm.getPackageInfo(packageName, 0)
+        val appInfo = pkg.applicationInfo ?: return emptyList()
+        val dataDir = appInfo.dataDir ?: "unknown"
+        val cacheDir = context.cacheDir?.absolutePath ?: "unknown"
+        val obbDir = context.obbDir?.absolutePath ?: "unknown"
+        val externalDir = context.getExternalFilesDir(null)?.absolutePath ?: "unknown"
+        val nativeDir = appInfo.nativeLibraryDir ?: "unknown"
+        listOf(
+            GtaRuntimePathEntry("Package", packageName),
+            GtaRuntimePathEntry("Source", appInfo.sourceDir ?: "unknown"),
+            GtaRuntimePathEntry("Data", dataDir),
+            GtaRuntimePathEntry("Native libs", nativeDir),
+            GtaRuntimePathEntry("Cache", cacheDir),
+            GtaRuntimePathEntry("OBB", obbDir),
+            GtaRuntimePathEntry("External files", externalDir),
+        )
+    } catch (_: Exception) {
+        listOf(
+            GtaRuntimePathEntry("Package", packageName),
+            GtaRuntimePathEntry("Path finder", "Runtime not installed or package access unavailable"),
+        )
+    }
+}
 
 private enum class ServerHealthStatus(val label: String) {
     HEALTHY("healthy"),
@@ -288,6 +379,171 @@ private val RakNetSignals = listOf(
     RakNetSignal("0x7d", "Open:MP / SA:MP RPC wrapper", "RPC payload wrapper for protocol inspection"),
 )
 
+private data class ProtocolInsight(
+    val title: String,
+    val value: String,
+    val description: String,
+    val ready: Boolean,
+)
+
+private data class RakNetProtocolState(
+    val observedSignals: List<String>,
+    val handshakeState: String,
+    val replyState: String,
+    val payloadState: String,
+    val captureState: String,
+) {
+    val packetFingerprint: String
+        get() = if (observedSignals.isEmpty()) "idle" else observedSignals.joinToString(" / ")
+}
+
+private data class QuerySignalAnalysisRow(
+    val phase: String,
+    val marker: String,
+    val evidence: String,
+    val detected: Boolean,
+    val confidence: String,
+)
+
+internal fun buildQuerySignalAnalysis(recentEvents: List<String>): List<QuerySignalAnalysisRow> {
+    val eventText = recentEvents.joinToString("\n").lowercase(Locale.US)
+    val signalRows = listOf(
+        QuerySignalAnalysisRow(
+            phase = "handshake",
+            marker = "0x00 / 0x1c",
+            evidence = "connected ping and connection request",
+            detected = eventText.contains("0x00") || eventText.contains("connected ping") ||
+                eventText.contains("0x1c") || eventText.contains("open connection request"),
+            confidence = if (eventText.contains("0x00") || eventText.contains("connected ping") ||
+                eventText.contains("0x1c") || eventText.contains("open connection request")) "high" else "low",
+        ),
+        QuerySignalAnalysisRow(
+            phase = "reply",
+            marker = "0x1d",
+            evidence = "server reply / connection acceptance",
+            detected = eventText.contains("0x1d") || eventText.contains("open connection reply") ||
+                eventText.contains("connection accepted") || eventText.contains("reply"),
+            confidence = if (eventText.contains("0x1d") || eventText.contains("open connection reply") ||
+                eventText.contains("connection accepted") || eventText.contains("reply")) "high" else "low",
+        ),
+        QuerySignalAnalysisRow(
+            phase = "payload",
+            marker = "0x7d",
+            evidence = "RPC wrapper / payload inspection",
+            detected = eventText.contains("0x7d") || eventText.contains("rpc wrapper") ||
+                eventText.contains("payload") || eventText.contains("rpc packet"),
+            confidence = if (eventText.contains("0x7d") || eventText.contains("rpc wrapper") ||
+                eventText.contains("payload") || eventText.contains("rpc packet")) "high" else "low",
+        ),
+    )
+    return signalRows.map { row ->
+        val statusText = if (row.detected) "detected" else "waiting"
+        row.copy(confidence = if (row.detected) row.confidence else "idle")
+    }
+}
+
+internal fun buildRakNetProtocolState(recentEvents: List<String>): RakNetProtocolState {
+    val eventText = recentEvents.joinToString("\n").lowercase(Locale.US)
+    val normalizedEventText = eventText.replace(" / ", "/")
+    val knownSignals = listOf(
+        "0x00" to "RakNet connected ping",
+        "0x1c" to "RakNet open connection request",
+        "0x1d" to "RakNet open connection reply",
+        "0x7d" to "Open:MP / SA:MP RPC wrapper",
+    )
+    val observedSignals = knownSignals.mapNotNull { (code, label) ->
+        val normalizedLabel = label.lowercase(Locale.US).replace(" / ", "/")
+        if (normalizedEventText.contains(code.lowercase(Locale.US)) || normalizedEventText.contains(normalizedLabel)) {
+            code
+        } else {
+            null
+        }
+    }
+    val handshakeState = if (
+        eventText.contains("connected ping") ||
+        eventText.contains("open connection request") ||
+        eventText.contains("handshake") ||
+        observedSignals.contains("0x00") ||
+        observedSignals.contains("0x1c")
+    ) {
+        "in progress"
+    } else {
+        "waiting"
+    }
+    val replyState = if (
+        eventText.contains("open connection reply") ||
+        eventText.contains("reply") ||
+        eventText.contains("0x1d")
+    ) {
+        "replied"
+    } else {
+        "waiting"
+    }
+    val payloadState = if (
+        eventText.contains("rpc wrapper") ||
+        eventText.contains("payload") ||
+        eventText.contains("0x7d")
+    ) {
+        "wrapped"
+    } else {
+        "quiet"
+    }
+    val captureState = if (
+        eventText.contains("stream") ||
+        eventText.contains("capture") ||
+        eventText.contains("screen") ||
+        eventText.contains("projection")
+    ) {
+        "active"
+    } else {
+        "idle"
+    }
+
+    return RakNetProtocolState(
+        observedSignals = observedSignals,
+        handshakeState = handshakeState,
+        replyState = replyState,
+        payloadState = payloadState,
+        captureState = captureState,
+    )
+}
+
+private fun buildProtocolInsights(recentEvents: List<String>): List<ProtocolInsight> {
+    val protocolState = buildRakNetProtocolState(recentEvents)
+    return listOf(
+        ProtocolInsight(
+            title = "Packet fingerprint",
+            value = protocolState.packetFingerprint,
+            description = "Observed RakNet/Open:MP markers in the local host diagnostics stream.",
+            ready = protocolState.observedSignals.isNotEmpty(),
+        ),
+        ProtocolInsight(
+            title = "Handshake state",
+            value = protocolState.handshakeState,
+            description = "RakNet handshake detection is emphasizing connection start and ping activity.",
+            ready = protocolState.handshakeState == "in progress",
+        ),
+        ProtocolInsight(
+            title = "Reply state",
+            value = protocolState.replyState,
+            description = "Server response monitoring is watching for connection accept and negotiation replies.",
+            ready = protocolState.replyState == "replied",
+        ),
+        ProtocolInsight(
+            title = "Payload / RPC state",
+            value = protocolState.payloadState,
+            description = "Open:MP / SA:MP wrapper inspection is active as a diagnostic signal layer.",
+            ready = protocolState.payloadState == "wrapped",
+        ),
+        ProtocolInsight(
+            title = "Local capture state",
+            value = protocolState.captureState,
+            description = "Host-side capture and runtime state feedback stay inside the local diagnostics model.",
+            ready = protocolState.captureState == "active",
+        ),
+    )
+}
+
 private val InitialOverview = NativeOverview(
     clientName = "AndroidSA",
     transport = "loading",
@@ -358,7 +614,10 @@ private fun AndroidSAApp() {
     var eventFilter by remember { mutableStateOf(EventCategory.ALL) }
     var streamCaptureState by remember { mutableStateOf(StreamCaptureState()) }
     var streamSurfaceReady by remember { mutableStateOf(false) }
-    val gtaRuntimeStatus = remember(context) { detectGtaRuntime(context) }
+    var gtaRuntimeStatus by remember(context) { mutableStateOf(detectGtaRuntime(context)) }
+    val gtaRuntimePathEntries = remember(context, gtaRuntimeStatus.packageName) {
+        runtimePathEntries(context, gtaRuntimeStatus.packageName)
+    }
     val commandMutex = remember { Mutex() }
     val scope = rememberCoroutineScope()
     val capturePermissionLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
@@ -677,12 +936,178 @@ private fun AndroidSAApp() {
                     }
                 }
             }
+            SectionCard(title = "RakNet / Open:MP protocol intelligence") {
+                val protocolInsights = buildProtocolInsights(snapshot.recentEvents)
+                protocolInsights.forEach { insight ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(10.dp)
+                                .background(if (insight.ready) Color(0xFF2E7D32) else Color(0xFF616161)),
+                        )
+                        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                            Text(
+                                text = insight.title,
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.SemiBold,
+                            )
+                            Text(
+                                text = insight.value,
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.Medium,
+                            )
+                            Text(
+                                text = insight.description,
+                                style = MaterialTheme.typography.bodySmall,
+                            )
+                        }
+                    }
+                }
+            }
+            SectionCard(title = "Query / signal analysis") {
+                val querySignals = buildQuerySignalAnalysis(snapshot.recentEvents)
+                querySignals.forEach { signal ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                            Text(
+                                text = "${signal.phase} · ${signal.marker}",
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.SemiBold,
+                            )
+                            Text(
+                                text = signal.evidence,
+                                style = MaterialTheme.typography.bodySmall,
+                            )
+                        }
+                        Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                            Text(
+                                text = if (signal.detected) "detected" else "waiting",
+                                color = if (signal.detected) Color(0xFF2E7D32) else Color(0xFF616161),
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.Bold,
+                            )
+                            Text(
+                                text = signal.confidence,
+                                color = if (signal.detected) Color(0xFF90CAF9) else Color(0xFFB0BEC5),
+                                style = MaterialTheme.typography.bodySmall,
+                            )
+                        }
+                    }
+                }
+            }
+            SectionCard(title = "GTA connection & path finder") {
+                val routeSteps = buildGtaConnectionRoute(
+                    gtaStatus = gtaRuntimeStatus,
+                    streamState = streamCaptureState.state,
+                    streamSurfaceReady = streamSurfaceReady,
+                )
+                val routeStatusText = runtimeRouteSummary(
+                    gtaStatus = gtaRuntimeStatus,
+                    streamState = streamCaptureState.state,
+                    streamSurfaceReady = streamSurfaceReady,
+                )
+
+                Text(
+                    text = "Connection route: local device -> GTA SA Mobile host -> launch probe -> diagnostics stream",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color(0xFF1565C0),
+                )
+                Text(
+                    text = routeStatusText,
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = if (gtaRuntimeStatus.installed && gtaRuntimeStatus.launchable) Color(0xFF2E7D32) else Color(0xFFE0E0E0),
+                )
+                Text(
+                    text = "This layer only inspects the local GTA runtime, package paths, and runtime metadata; it does not become a gameplay client.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color(0xFF2E7D32),
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    ActionButton(label = "Detect host", enabled = !isBusy) {
+                        val detected = detectGtaRuntime(context)
+                        gtaRuntimeStatus = detected
+                        applyLocalError("Host detection: ${detected.packageName} (${detected.state})")
+                    }
+                    ActionButton(label = "Open runtime", enabled = !isBusy && gtaRuntimeStatus.launchable) {
+                        val launched = launchGtaRuntime(context)
+                        gtaRuntimeStatus = detectGtaRuntime(context)
+                        if (!launched) {
+                            applyLocalError("GTA SA Mobile launch intent is unavailable on this device")
+                        }
+                    }
+                }
+
+                routeSteps.forEach { step ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(12.dp)
+                                .background(
+                                    if (step.ready) Color(0xFF2E7D32) else Color(0xFF616161),
+                                ),
+                        )
+                        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                            Text(
+                                text = step.label,
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.SemiBold,
+                            )
+                            Text(
+                                text = "${step.status} · ${step.detail}",
+                                style = MaterialTheme.typography.bodySmall,
+                            )
+                        }
+                    }
+                }
+
+                gtaRuntimePathEntries.forEach { entry ->
+                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        Text(
+                            text = entry.label,
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                        Text(
+                            text = entry.value,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Color(0xFFE0E0E0),
+                        )
+                    }
+                }
+            }
             SectionCard(title = "Naht B: GTA SA Mobile host") {
                 val streamState = streamCaptureState.state
                 val streamFps = "${streamCaptureState.captureFps} fps"
                 val captureLatencyMs = "${streamCaptureState.captureLatencyMs} ms"
                 val streamGeometry = "${streamCaptureState.frameWidth}x${streamCaptureState.frameHeight}"
                 val streamSurfaceState = if (streamSurfaceReady) "ready" else "waiting"
+
+                Text(
+                    text = "Scope: local host detection + launch only; no join/sync, no GTA V, no Play Core, no gameplay-client integration.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color(0xFF1565C0),
+                )
+                Text(
+                    text = "Phase 2 stays local: capture/surface status and runtime info only, never a multiplayer client.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color(0xFF2E7D32),
+                )
 
                 AndroidView(
                     factory = { ctx ->
@@ -731,6 +1156,7 @@ private fun AndroidSAApp() {
                         enabled = !isBusy,
                     ) {
                         val launched = launchGtaRuntime(context)
+                        gtaRuntimeStatus = detectGtaRuntime(context)
                         if (launched) {
                             dispatchPreset("stream:start")
                         } else if (!gtaRuntimeStatus.installed) {
@@ -806,7 +1232,8 @@ private fun AndroidSAApp() {
                     } else {
                         prefs.edit().putString(GtaRuntimePackageOverrideKey, packages.joinToString(",")).apply()
                     }
-                    dispatchPreset("stream:source:${packages.firstOrNull() ?: gtaRuntimeStatus.packageName}")
+                    gtaRuntimeStatus = detectGtaRuntime(context)
+                    dispatchPreset("stream:source:${gtaRuntimeStatus.packageName}")
                 }) {
                     Text("Apply package override")
                 }
@@ -1022,7 +1449,7 @@ private fun AndroidSAApp() {
                     supportingText = {
                         Text(
                             commandError
-                                ?: "Examples: ping, connect, connect:demo.sa-mp.local:7777, player:Guest, transport:udp, latency:42, diagnostics:ok, simulate:rx, stream:start, stream:stop, stream:info"
+                                ?: "Examples: ping, connect, connect:demo.sa-mp.local:7777, player:Guest, transport:udp, latency:42, diagnostics:ok, protocol:handshake, protocol:status, simulate:rx, stream:start, stream:stop, stream:info"
                         )
                     },
                     modifier = Modifier.fillMaxWidth(),

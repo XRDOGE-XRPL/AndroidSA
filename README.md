@@ -4,6 +4,24 @@ AndroidSA ist eine Android-Launcher- und Diagnose-Schicht für die lokal install
 
 „AndroidSA startet und beobachtet die lokal installierte GTA-SA-Mobile-Laufzeit. Online kommt später in diese Laufzeit, nicht ins Compose-Dashboard.“
 
+## Aktueller Stand (Naht B / Phase 1 + Phase 2)
+
+Der aktuelle Scope ist klar eingegrenzt:
+
+- Phase 1: Host-Erkennung und Launch der lokalen GTA-SA-Mobile-Laufzeit auf demselben Gerät
+- Manifest-Queries nur für `com.rockstargames.gtasager`, `com.rockstargames.gtasa` und `com.rockstargames.gtasa.de`
+- `GtaPackageDetector` prüft Installationsstatus, Version und Launch-Intent
+- `stream:info` meldet Paket-/Launch-/Runtime-Status, aber keine Join-/Gameplay-Logik
+- Phase 2 bleibt auf lokale Capture-/Surface-/Stream-Diagnostik begrenzt
+
+Im Scope bleiben ausdrücklich ausgeschlossen:
+
+- Join, Sync, Multiplayer-Client
+- Play Core gegen GTA
+- GTA V
+- QUERY_ALL_PACKAGES
+- Repo-Assets mit GTA-Inhalten
+
 ## Realistischer Projektumfang
 
 AndroidSA ist bewusst keine fertige GTA-SA-Mobile-Gameplay-Integration und kein behaupteter Open:MP-Android-Client. Der Fokus liegt auf:
@@ -155,6 +173,7 @@ Die JVM- und native Validierung akzeptieren diese Befehle mit genauer Syntax:
 - `stream:pause`
 - `stream:info`
 - `stream:source:<package>`
+- `protocol:<idle|handshake|reply|payload|status>`
 - `simulate:rx`
 - `simulate:tx`
 - `fail:<reason>`

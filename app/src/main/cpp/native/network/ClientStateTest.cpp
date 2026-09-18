@@ -43,6 +43,20 @@ int main() {
         return 1;
     }
 
+    const auto connectedEvents = state.recentEvents();
+    bool sawProtocolSignal = false;
+    for (const auto& event : connectedEvents) {
+        if (event.find("RakNet open connection request") != std::string::npos ||
+            event.find("Open:MP/SA:MP RPC wrapper") != std::string::npos ||
+            event.find("RakNet connected ping") != std::string::npos) {
+            sawProtocolSignal = true;
+            break;
+        }
+    }
+    if (!expect(sawProtocolSignal, "Connected UDP probes should surface RakNet/Open:MP protocol signals")) {
+        return 1;
+    }
+
     if (!expect(state.dispatchCommand("simulate:tx"), "Expected simulate:tx command to succeed")) {
         return 1;
     }
@@ -87,6 +101,17 @@ int main() {
 
     const auto statusSummary = parseSummary(state.summary());
     if (!expect(statusSummary[3].find("Status snapshot ready for CJ on play.example.org:7777") == 0, "Status command should refresh diagnostics with expanded state")) {
+        return 1;
+    }
+
+    if (!expect(state.dispatchCommand("protocol:handshake"), "Protocol:handshake command should succeed")) {
+        return 1;
+    }
+    if (!expect(state.dispatchCommand("protocol:status"), "Protocol:status command should succeed")) {
+        return 1;
+    }
+    const auto protocolSummary = parseSummary(state.summary());
+    if (!expect(protocolSummary[3].find("Protocol observer phase: handshake") == 0, "Protocol status should report the active diagnostic phase")) {
         return 1;
     }
 
