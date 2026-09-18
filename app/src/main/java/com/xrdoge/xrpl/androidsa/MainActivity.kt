@@ -781,6 +781,8 @@ private fun AndroidSAApp() {
                     Text("VERSION: ${gtaRuntimeStatus.versionName}")
                     Text("STREAM_STATE: ${streamState}")
                     Text("FPS: $streamFps")
+                    Text("FRAME: ${streamCaptureState.frameWidth}x${streamCaptureState.frameHeight}")
+                    Text("DROPPED: ${streamCaptureState.droppedFrames}")
                     Text("CAPTURE_MS: $captureLatencyMs")
                 }
 

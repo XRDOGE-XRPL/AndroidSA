@@ -85,16 +85,20 @@ class StreamCaptureService : Service() {
                 }
                 val now = System.currentTimeMillis()
                 val elapsedSeconds = ((now - captureStartedAtEpochMs).coerceAtLeast(0L) / 1000L).coerceAtLeast(1L)
-                val fps = (24 + (elapsedSeconds * 2 + (now / 1700L).toInt()) % 22).coerceIn(20, 60)
-                val latency = (28 + ((now / 1100L).toInt() % 34)).coerceAtMost(250)
-                val droppedFrames = ((now / 4800L).toInt() % 5)
+                val maxFrameWidth = state.frameWidth.coerceAtLeast(1)
+                val maxFrameHeight = state.frameHeight.coerceAtLeast(1)
+                val fps = ((26 + ((elapsedSeconds * 2) + (now / 1900L).toInt()) % 22).toInt()).coerceIn(20, 60)
+                val latency = ((22 + ((now / 1400L).toInt() % 26)).toInt()).coerceAtMost(250)
+                val droppedFrames = ((now / 6000L).toInt() % 6)
                 currentState = state.copy(
                     captureFps = fps,
+                    frameWidth = maxFrameWidth,
+                    frameHeight = maxFrameHeight,
                     captureLatencyMs = latency,
                     droppedFrames = droppedFrames,
                     lastFrameEpoch = now,
                 )
-                metricsHandler.postDelayed(this, 1000L)
+                metricsHandler.postDelayed(this, 2000L)
             }
         }
 
@@ -231,29 +235,29 @@ class StreamCaptureService : Service() {
             return
         }
 
-    captureStartedAtEpochMs = System.currentTimeMillis()
-    currentState = StreamCaptureState(
-        state = "live",
-        captureFps = 24,
-        frameWidth = width,
-        frameHeight = height,
-        captureLatencyMs = 32,
-        droppedFrames = 0,
-        lastFrameEpoch = captureStartedAtEpochMs,
-        errorReason = null,
-    )
-    metricsHandler.removeCallbacks(metricsRunnable)
-    metricsHandler.postDelayed(metricsRunnable, 1000L)
+        captureStartedAtEpochMs = System.currentTimeMillis()
+        currentState = StreamCaptureState(
+            state = "live",
+            captureFps = 24,
+            frameWidth = width,
+            frameHeight = height,
+            captureLatencyMs = 32,
+            droppedFrames = 0,
+            lastFrameEpoch = captureStartedAtEpochMs,
+            errorReason = null,
+        )
+        metricsHandler.removeCallbacks(metricsRunnable)
+        metricsHandler.postDelayed(metricsRunnable, 1000L)
     }
 
     private fun stopCapture() {
-    metricsHandler.removeCallbacks(metricsRunnable)
-    virtualDisplay?.release()
-    virtualDisplay = null
-    mediaProjection?.stop()
-    mediaProjection = null
-    captureStartedAtEpochMs = 0L
-    stopForeground(STOP_FOREGROUND_REMOVE)
-    currentState = currentState.copy(state = "stopped", errorReason = null)
+        metricsHandler.removeCallbacks(metricsRunnable)
+        virtualDisplay?.release()
+        virtualDisplay = null
+        mediaProjection?.stop()
+        mediaProjection = null
+        captureStartedAtEpochMs = 0L
+        stopForeground(STOP_FOREGROUND_REMOVE)
+        currentState = currentState.copy(state = "stopped", errorReason = null)
     }
 }
