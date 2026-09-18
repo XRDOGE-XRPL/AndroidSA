@@ -291,7 +291,9 @@ class NativeBridgeTest {
     @Test
     fun classifyEventCategoryRecognizesKeySignals() {
         assertEquals(EventCategory.HANDSHAKE, classifyEventCategory("RX RakNet connected ping"))
+        assertEquals(EventCategory.HANDSHAKE, classifyEventCategory("RakNet connection request queued"))
         assertEquals(EventCategory.REPLY, classifyEventCategory("Open connection reply received"))
+        assertEquals(EventCategory.REPLY, classifyEventCategory("RakNet connection accepted by server"))
         assertEquals(EventCategory.PAYLOAD, classifyEventCategory("RX Open:MP/SA:MP RPC wrapper"))
         assertEquals(EventCategory.WARNING, classifyEventCategory("UDP timeout while waiting for reply"))
         assertEquals(EventCategory.DIAGNOSTIC, classifyEventCategory("Session reset to initial state"))

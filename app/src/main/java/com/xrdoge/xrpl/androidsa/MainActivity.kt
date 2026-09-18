@@ -75,10 +75,16 @@ internal enum class EventCategory(val label: String) {
 internal fun classifyEventCategory(event: String): EventCategory {
     val normalized = event.lowercase()
     return when {
-        normalized.contains("timeout") || normalized.contains("failed") || normalized.contains("error") -> EventCategory.WARNING
-        normalized.contains("rpc wrapper") || normalized.contains("payload") || normalized.contains("0x7d") -> EventCategory.PAYLOAD
-        normalized.contains("open connection reply") || normalized.contains("reply") || normalized.contains("0x1d") -> EventCategory.REPLY
-        normalized.contains("connected ping") || normalized.contains("open connection request") || normalized.contains("handshake") || normalized.contains("0x00") || normalized.contains("0x1c") -> EventCategory.HANDSHAKE
+        normalized.contains("timeout") || normalized.contains("failed") || normalized.contains("error") ||
+            normalized.contains("rejected") || normalized.contains("disconnected") -> EventCategory.WARNING
+        normalized.contains("rpc wrapper") || normalized.contains("payload") ||
+            normalized.contains("0x7d") || normalized.contains("rpc packet") -> EventCategory.PAYLOAD
+        normalized.contains("open connection reply") || normalized.contains("connection accepted") ||
+            normalized.contains("new incoming connection") || normalized.contains("reply") ||
+            normalized.contains("0x1d") || normalized.contains("0x13") || normalized.contains("0x15") -> EventCategory.REPLY
+        normalized.contains("connected ping") || normalized.contains("connection request") ||
+            normalized.contains("open connection request") || normalized.contains("handshake") ||
+            normalized.contains("0x00") || normalized.contains("0x10") || normalized.contains("0x1c") -> EventCategory.HANDSHAKE
         else -> EventCategory.DIAGNOSTIC
     }
 }
