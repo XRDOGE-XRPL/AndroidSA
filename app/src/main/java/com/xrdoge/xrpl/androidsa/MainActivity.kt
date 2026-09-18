@@ -92,6 +92,7 @@ internal fun filterRecentEvents(events: List<String>, category: EventCategory): 
 
 internal fun summarizeEventCategories(events: List<String>): Map<EventCategory, Int> {
     val totals = EventCategory.entries.associateWith { 0 }.toMutableMap()
+    totals[EventCategory.ALL] = events.size
     events.forEach { event ->
         val category = classifyEventCategory(event)
         totals[category] = (totals[category] ?: 0) + 1

@@ -312,6 +312,24 @@ class NativeBridgeTest {
     }
 
     @Test
+    fun summarizeEventCategoriesCountsTotalAndCategoryBuckets() {
+        val events = listOf(
+            "RX RakNet connected ping",
+            "RX Open:MP/SA:MP RPC wrapper",
+            "Timeout while waiting for reply",
+            "Session reset to initial state",
+        )
+
+        val totals = summarizeEventCategories(events)
+
+        assertEquals(4, totals[EventCategory.ALL])
+        assertEquals(1, totals[EventCategory.HANDSHAKE])
+        assertEquals(1, totals[EventCategory.PAYLOAD])
+        assertEquals(1, totals[EventCategory.WARNING])
+        assertEquals(1, totals[EventCategory.DIAGNOSTIC])
+    }
+
+    @Test
     fun requireValidNativeCommandRejectsMissingFailSeparator() {
         assertThrows(IllegalArgumentException::class.java) {
             requireValidNativeCommand("fail")
