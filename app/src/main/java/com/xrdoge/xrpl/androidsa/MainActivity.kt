@@ -1,12 +1,16 @@
 package com.xrdoge.xrpl.androidsa
 
+import android.app.Activity
 import android.content.Context
 import android.content.Intent
+import android.media.projection.MediaProjectionManager
 import android.net.Uri
 import android.os.Bundle
+import android.view.Surface
+import android.view.TextureView
 import androidx.activity.ComponentActivity
-import java.util.Locale
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -14,6 +18,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -35,8 +40,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.viewinterop.AndroidView
+import java.util.Locale
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -348,9 +356,26 @@ private fun AndroidSAApp() {
     var commandJob by remember { mutableStateOf<Job?>(null) }
     var commandInFlight by remember { mutableStateOf<String?>(null) }
     var eventFilter by remember { mutableStateOf(EventCategory.ALL) }
+    var streamCaptureState by remember { mutableStateOf(StreamCaptureState()) }
+    var streamSurfaceReady by remember { mutableStateOf(false) }
     val gtaRuntimeStatus = remember(context) { detectGtaRuntime(context) }
     val commandMutex = remember { Mutex() }
     val scope = rememberCoroutineScope()
+    val capturePermissionLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult(),
+    ) { result ->
+        val resultCode = result.resultCode
+        val data = result.data
+        if (resultCode == Activity.RESULT_OK && data != null) {
+            StreamCaptureService.startWithProjection(context, resultCode, data)
+            streamCaptureState = StreamCaptureService.currentState()
+        } else {
+            streamCaptureState = StreamCaptureState(
+                state = "error",
+                errorReason = "Screen capture permission was denied",
+            )
+        }
+    }
     LaunchedEffect(serverProfiles) {
         persistServerProfiles(context, serverProfiles)
     }
@@ -639,16 +664,47 @@ private fun AndroidSAApp() {
                 }
             }
             SectionCard(title = "Naht B: GTA SA Mobile host") {
-                val streamState = snapshot.recentEvents.firstOrNull { it.contains("stream", ignoreCase = true) }
-                    ?: "idle"
-                val streamFps = if (snapshot.overview.connectionState.equals("streaming", ignoreCase = true)) "30 fps" else "0 fps"
-                val captureLatencyMs = if (snapshot.overview.connectionState.equals("streaming", ignoreCase = true)) "42 ms" else "n/a"
+                val streamState = streamCaptureState.state
+                val streamFps = "${streamCaptureState.captureFps} fps"
+                val captureLatencyMs = "${streamCaptureState.captureLatencyMs} ms"
+
+                AndroidView(
+                    factory = { ctx ->
+                        TextureView(ctx).apply {
+                            surfaceTextureListener = object : TextureView.SurfaceTextureListener {
+                                override fun onSurfaceTextureAvailable(surface: android.graphics.SurfaceTexture, width: Int, height: Int) {
+                                    val captureSurface = Surface(surface)
+                                    StreamCaptureService.attachSurface(captureSurface)
+                                    streamSurfaceReady = true
+                                    if (streamCaptureState.state == "starting") {
+                                        streamCaptureState = StreamCaptureService.currentState()
+                                    }
+                                }
+
+                                override fun onSurfaceTextureSizeChanged(surface: android.graphics.SurfaceTexture, width: Int, height: Int) = Unit
+                                override fun onSurfaceTextureDestroyed(surface: android.graphics.SurfaceTexture): Boolean {
+                                    streamSurfaceReady = false
+                                    StreamCaptureService.clearSurface()
+                                    return true
+                                }
+
+                                override fun onSurfaceTextureUpdated(surface: android.graphics.SurfaceTexture) = Unit
+                            }
+                        }
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(180.dp),
+                )
 
                 Text("Host package: ${gtaRuntimeStatus.packageName}")
                 Text("Version: ${gtaRuntimeStatus.versionName}")
                 Text("State: ${gtaRuntimeStatus.state}")
                 Text("Launch intent: ${if (gtaRuntimeStatus.launchable) "available" else "unavailable"}")
                 Text(gtaRuntimeStatus.summary)
+                if (streamCaptureState.errorReason != null) {
+                    Text("Stream error: ${streamCaptureState.errorReason}", color = Color(0xFFD32F2F))
+                }
 
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     ActionButton(
@@ -664,16 +720,30 @@ private fun AndroidSAApp() {
                             applyLocalError("GTA SA Mobile launch intent is unavailable on this device")
                         }
                     }
-                    ActionButton(label = "Stream start", enabled = !isBusy) {
-                        dispatchPreset("stream:start")
+                    ActionButton(label = if (streamCaptureState.state == "live") "Stream running" else "Stream start", enabled = !isBusy && streamSurfaceReady) {
+                        if (streamCaptureState.state == "live") {
+                            StreamCaptureService.requestStop(context)
+                            streamCaptureState = StreamCaptureState(state = "stopped")
+                            dispatchPreset("stream:stop")
+                        } else {
+                            val projectionManager = context.getSystemService(MediaProjectionManager::class.java)
+                            val captureIntent = projectionManager.createScreenCaptureIntent()
+                            capturePermissionLauncher.launch(captureIntent)
+                            streamCaptureState = StreamCaptureState(state = "starting", errorReason = null)
+                            dispatchPreset("stream:start")
+                        }
                     }
                     ActionButton(label = "Stream stop", enabled = !isBusy) {
+                        StreamCaptureService.requestStop(context)
+                        streamCaptureState = StreamCaptureState(state = "stopped")
                         dispatchPreset("stream:stop")
                     }
                     ActionButton(label = "Stream pause", enabled = !isBusy) {
                         dispatchPreset("stream:pause")
                     }
                     ActionButton(label = "Stream info", enabled = !isBusy) {
+                        val infoState = StreamCaptureService.currentState()
+                        streamCaptureState = infoState
                         dispatchPreset("stream:info")
                     }
                 }
