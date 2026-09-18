@@ -127,6 +127,20 @@ private fun buildGtaConnectionRoute(
     )
 }
 
+private fun runtimeRouteSummary(
+    gtaStatus: GtaRuntimeStatus,
+    streamState: String,
+    streamSurfaceReady: Boolean,
+): String {
+    val streamReady = streamState in listOf("live", "paused", "starting") || streamSurfaceReady
+    return when {
+        !gtaStatus.installed -> "Host missing: GTA SA Mobile is not installed on this device."
+        !gtaStatus.launchable -> "Host detected but launch intent is unavailable."
+        !streamReady -> "Host is ready; waiting for the local diagnostics stream to become active."
+        else -> "Route ready: local host detected, launchable, and diagnostics stream active."
+    }
+}
+
 private fun runtimePathEntries(context: Context, packageName: String): List<GtaRuntimePathEntry> {
     return try {
         val pm = context.packageManager
@@ -555,7 +569,7 @@ private fun AndroidSAApp() {
     var eventFilter by remember { mutableStateOf(EventCategory.ALL) }
     var streamCaptureState by remember { mutableStateOf(StreamCaptureState()) }
     var streamSurfaceReady by remember { mutableStateOf(false) }
-    val gtaRuntimeStatus = remember(context) { detectGtaRuntime(context) }
+    var gtaRuntimeStatus by remember(context) { mutableStateOf(detectGtaRuntime(context)) }
     val gtaRuntimePathEntries = remember(context, gtaRuntimeStatus.packageName) {
         runtimePathEntries(context, gtaRuntimeStatus.packageName)
     }
@@ -915,11 +929,22 @@ private fun AndroidSAApp() {
                     streamState = streamCaptureState.state,
                     streamSurfaceReady = streamSurfaceReady,
                 )
+                val routeStatusText = runtimeRouteSummary(
+                    gtaStatus = gtaRuntimeStatus,
+                    streamState = streamCaptureState.state,
+                    streamSurfaceReady = streamSurfaceReady,
+                )
 
                 Text(
                     text = "Connection route: local device -> GTA SA Mobile host -> launch probe -> diagnostics stream",
                     style = MaterialTheme.typography.bodySmall,
                     color = Color(0xFF1565C0),
+                )
+                Text(
+                    text = routeStatusText,
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = if (gtaRuntimeStatus.installed && gtaRuntimeStatus.launchable) Color(0xFF2E7D32) else Color(0xFFE0E0E0),
                 )
                 Text(
                     text = "This layer only inspects the local GTA runtime, package paths, and runtime metadata; it does not become a gameplay client.",
@@ -932,10 +957,15 @@ private fun AndroidSAApp() {
                 ) {
                     ActionButton(label = "Detect host", enabled = !isBusy) {
                         val detected = detectGtaRuntime(context)
+                        gtaRuntimeStatus = detected
                         applyLocalError("Host detection: ${detected.packageName} (${detected.state})")
                     }
                     ActionButton(label = "Open runtime", enabled = !isBusy && gtaRuntimeStatus.launchable) {
-                        launchGtaRuntime(context)
+                        val launched = launchGtaRuntime(context)
+                        gtaRuntimeStatus = detectGtaRuntime(context)
+                        if (!launched) {
+                            applyLocalError("GTA SA Mobile launch intent is unavailable on this device")
+                        }
                     }
                 }
 
@@ -1046,6 +1076,7 @@ private fun AndroidSAApp() {
                         enabled = !isBusy,
                     ) {
                         val launched = launchGtaRuntime(context)
+                        gtaRuntimeStatus = detectGtaRuntime(context)
                         if (launched) {
                             dispatchPreset("stream:start")
                         } else if (!gtaRuntimeStatus.installed) {
@@ -1121,7 +1152,8 @@ private fun AndroidSAApp() {
                     } else {
                         prefs.edit().putString(GtaRuntimePackageOverrideKey, packages.joinToString(",")).apply()
                     }
-                    dispatchPreset("stream:source:${packages.firstOrNull() ?: gtaRuntimeStatus.packageName}")
+                    gtaRuntimeStatus = detectGtaRuntime(context)
+                    dispatchPreset("stream:source:${gtaRuntimeStatus.packageName}")
                 }) {
                     Text("Apply package override")
                 }
