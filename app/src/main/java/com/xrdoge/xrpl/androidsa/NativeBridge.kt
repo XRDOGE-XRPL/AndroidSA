@@ -25,12 +25,18 @@ private const val NativeSummaryFieldCount = 11
 private const val MaxNativeRecentEvents = 48
 
 private fun requireExactValueCommand(sanitized: String, normalized: String, keyword: String, label: String): String {
-    val separatorIndex = normalized.indexOf(':')
+    val separatorIndex = sanitized.indexOf(':')
     require(separatorIndex != -1) { "$label command must include ':' separator" }
-    val prefix = sanitized.substring(0, separatorIndex).lowercase()
-    require(prefix == keyword) { "$label command keyword is invalid" }
+
+    val rawKeyword = sanitized.substring(0, separatorIndex)
+    require(rawKeyword.equals(keyword, ignoreCase = true)) { "$label command keyword is invalid" }
+    require(rawKeyword.none { it.isWhitespace() }) { "$label command keyword is invalid" }
+
+    val normalizedKeywordPrefix = normalized.substring(0, separatorIndex)
+    require(normalizedKeywordPrefix == keyword) { "$label command keyword is invalid" }
     val keywordTail = normalized.substring(keyword.length, separatorIndex)
     require(keywordTail.isEmpty()) { "$label command keyword is invalid" }
+
     val value = sanitized.substring(separatorIndex + 1).trim()
     require(value.isNotEmpty()) { "$label command value must not be blank" }
     return value

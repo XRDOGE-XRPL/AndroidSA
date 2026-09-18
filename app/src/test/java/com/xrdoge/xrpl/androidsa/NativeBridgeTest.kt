@@ -252,6 +252,13 @@ class NativeBridgeTest {
     }
 
     @Test
+    fun requireValidNativeCommandRejectsWhitespaceBeforeTransportSeparator() {
+        assertThrows(IllegalArgumentException::class.java) {
+            requireValidNativeCommand("transport :udp")
+        }
+    }
+
+    @Test
     fun requireValidNativeCommandAcceptsDiagnosticsCommand() {
         assertEquals("diagnostics:ok", requireValidNativeCommand("diagnostics:ok"))
     }
