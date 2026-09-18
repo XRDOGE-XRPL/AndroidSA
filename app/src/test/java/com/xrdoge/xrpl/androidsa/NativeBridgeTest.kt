@@ -345,6 +345,13 @@ class NativeBridgeTest {
     }
 
     @Test
+    fun requireValidNativeCommandRejectsUnsupportedCommandKeyword() {
+        assertThrows(IllegalArgumentException::class.java) {
+            requireValidNativeCommand("unknown:payload")
+        }
+    }
+
+    @Test
     fun classifyEventCategoryRecognizesKeySignals() {
         assertEquals(EventCategory.HANDSHAKE, classifyEventCategory("RX RakNet connected ping"))
         assertEquals(EventCategory.HANDSHAKE, classifyEventCategory("RakNet connection request queued"))

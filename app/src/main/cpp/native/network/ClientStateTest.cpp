@@ -174,6 +174,9 @@ int main() {
     if (!expect(!state.dispatchCommand("simulate:loopback"), "Unsupported simulate direction should fail")) {
         return 1;
     }
+    if (!expect(!state.dispatchCommand("unknown:payload"), "Unsupported command keywords should fail")) {
+        return 1;
+    }
     if (!expect(!state.dispatchCommand("ping\n"), "Commands with control characters should fail even if trim would remove them")) {
         return 1;
     }
