@@ -406,7 +406,7 @@ private data class ProtocolInsight(
     val ready: Boolean,
 )
 
-private data class RakNetProtocolState(
+internal data class RakNetProtocolState(
     val observedSignals: List<String>,
     val handshakeState: String,
     val replyState: String,
@@ -417,7 +417,7 @@ private data class RakNetProtocolState(
         get() = if (observedSignals.isEmpty()) "idle" else observedSignals.joinToString(" / ")
 }
 
-private data class QuerySignalAnalysisRow(
+internal data class QuerySignalAnalysisRow(
     val phase: String,
     val marker: String,
     val evidence: String,
@@ -473,7 +473,12 @@ internal fun buildRakNetProtocolState(recentEvents: List<String>): RakNetProtoco
     )
     val observedSignals = knownSignals.mapNotNull { (code, label) ->
         val normalizedLabel = label.lowercase(Locale.US).replace(" / ", "/")
-        if (normalizedEventText.contains(code.lowercase(Locale.US)) || normalizedEventText.contains(normalizedLabel)) {
+        val replyVariantLabel = if (code == "0x1d") "connection reply" else normalizedLabel
+        if (
+            normalizedEventText.contains(code.lowercase(Locale.US)) ||
+            normalizedEventText.contains(normalizedLabel) ||
+            (code == "0x1d" && normalizedEventText.contains(replyVariantLabel))
+        ) {
             code
         } else {
             null
