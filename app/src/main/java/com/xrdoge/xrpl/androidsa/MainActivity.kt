@@ -377,6 +377,19 @@ private fun AndroidSAApp() {
             )
         }
     }
+    LaunchedEffect(streamCaptureState.state) {
+        if (streamCaptureState.state !in listOf("starting", "live", "paused", "need_permission")) {
+            return@LaunchedEffect
+        }
+        while (true) {
+            delay(1000)
+            val liveState = StreamCaptureService.currentState()
+            streamCaptureState = liveState
+            if (liveState.state !in listOf("starting", "live", "paused", "need_permission")) {
+                break
+            }
+        }
+    }
     LaunchedEffect(serverProfiles) {
         persistServerProfiles(context, serverProfiles)
     }
