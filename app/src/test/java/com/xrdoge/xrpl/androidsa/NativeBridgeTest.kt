@@ -362,6 +362,24 @@ class NativeBridgeTest {
     }
 
     @Test
+    fun buildRakNetProtocolStateTracksObservedSignalsAcrossPhases() {
+        val protocolState = buildRakNetProtocolState(
+            listOf(
+                "RX RakNet connected ping",
+                "RakNet open connection request",
+                "Open connection reply received",
+                "RX Open:MP/SA:MP RPC wrapper",
+            ),
+        )
+
+        assertEquals(listOf("0x00", "0x1c", "0x1d", "0x7d"), protocolState.observedSignals)
+        assertEquals("in progress", protocolState.handshakeState)
+        assertEquals("replied", protocolState.replyState)
+        assertEquals("wrapped", protocolState.payloadState)
+        assertEquals("idle", protocolState.captureState)
+    }
+
+    @Test
     fun requireValidNativeCommandRejectsMissingFailSeparator() {
         assertThrows(IllegalArgumentException::class.java) {
             requireValidNativeCommand("fail")

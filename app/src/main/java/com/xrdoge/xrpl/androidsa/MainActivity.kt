@@ -372,44 +372,115 @@ private data class ProtocolInsight(
     val ready: Boolean,
 )
 
-private fun buildProtocolInsights(recentEvents: List<String>): List<ProtocolInsight> {
-    val eventText = recentEvents.joinToString("\n").lowercase(Locale.US)
-    val observedSignals = listOf("0x00", "0x1c", "0x1d", "0x7d").filter { eventText.contains(it.lowercase(Locale.US)) }
-    val handshakeActive = eventText.contains("connected ping") || eventText.contains("open connection request") || eventText.contains("handshake")
-    val replyActive = eventText.contains("open connection reply") || eventText.contains("reply") || eventText.contains("0x1d")
-    val payloadActive = eventText.contains("rpc wrapper") || eventText.contains("payload") || eventText.contains("0x7d")
-    val captureActive = eventText.contains("stream") || eventText.contains("capture") || eventText.contains("screen") || eventText.contains("projection")
+private data class RakNetProtocolState(
+    val observedSignals: List<String>,
+    val handshakeState: String,
+    val replyState: String,
+    val payloadState: String,
+    val captureState: String,
+) {
+    val packetFingerprint: String
+        get() = if (observedSignals.isEmpty()) "idle" else observedSignals.joinToString(" / ")
+}
 
+internal fun buildRakNetProtocolState(recentEvents: List<String>): RakNetProtocolState {
+    val eventText = recentEvents.joinToString("\n").lowercase(Locale.US)
+    val normalizedEventText = eventText.replace(" / ", "/")
+    val knownSignals = listOf(
+        "0x00" to "RakNet connected ping",
+        "0x1c" to "RakNet open connection request",
+        "0x1d" to "RakNet open connection reply",
+        "0x7d" to "Open:MP / SA:MP RPC wrapper",
+    )
+    val observedSignals = knownSignals.mapNotNull { (code, label) ->
+        val normalizedLabel = label.lowercase(Locale.US).replace(" / ", "/")
+        if (normalizedEventText.contains(code.lowercase(Locale.US)) || normalizedEventText.contains(normalizedLabel)) {
+            code
+        } else {
+            null
+        }
+    }
+    val handshakeState = if (
+        eventText.contains("connected ping") ||
+        eventText.contains("open connection request") ||
+        eventText.contains("handshake") ||
+        observedSignals.contains("0x00") ||
+        observedSignals.contains("0x1c")
+    ) {
+        "in progress"
+    } else {
+        "waiting"
+    }
+    val replyState = if (
+        eventText.contains("open connection reply") ||
+        eventText.contains("reply") ||
+        eventText.contains("0x1d")
+    ) {
+        "replied"
+    } else {
+        "waiting"
+    }
+    val payloadState = if (
+        eventText.contains("rpc wrapper") ||
+        eventText.contains("payload") ||
+        eventText.contains("0x7d")
+    ) {
+        "wrapped"
+    } else {
+        "quiet"
+    }
+    val captureState = if (
+        eventText.contains("stream") ||
+        eventText.contains("capture") ||
+        eventText.contains("screen") ||
+        eventText.contains("projection")
+    ) {
+        "active"
+    } else {
+        "idle"
+    }
+
+    return RakNetProtocolState(
+        observedSignals = observedSignals,
+        handshakeState = handshakeState,
+        replyState = replyState,
+        payloadState = payloadState,
+        captureState = captureState,
+    )
+}
+
+private fun buildProtocolInsights(recentEvents: List<String>): List<ProtocolInsight> {
+    val protocolState = buildRakNetProtocolState(recentEvents)
     return listOf(
         ProtocolInsight(
             title = "Packet fingerprint",
-            value = if (observedSignals.isEmpty()) "idle" else observedSignals.joinToString(" / "),
+            value = protocolState.packetFingerprint,
             description = "Observed RakNet/Open:MP markers in the local host diagnostics stream.",
-            ready = observedSignals.isNotEmpty(),
+            ready = protocolState.observedSignals.isNotEmpty(),
         ),
         ProtocolInsight(
             title = "Handshake state",
-            value = if (handshakeActive) "in progress" else "waiting",
+            value = protocolState.handshakeState,
             description = "RakNet handshake detection is emphasizing connection start and ping activity.",
-            ready = handshakeActive,
+            ready = protocolState.handshakeState == "in progress",
         ),
         ProtocolInsight(
             title = "Reply state",
-            value = if (replyActive) "replied" else "waiting",
+            value = protocolState.replyState,
             description = "Server response monitoring is watching for connection accept and negotiation replies.",
-            ready = replyActive,
+            ready = protocolState.replyState == "replied",
         ),
         ProtocolInsight(
             title = "Payload / RPC state",
-            value = if (payloadActive) "wrapped" else "quiet",
+            value = protocolState.payloadState,
             description = "Open:MP / SA:MP wrapper inspection is active as a diagnostic signal layer.",
-            ready = payloadActive,
+            ready = protocolState.payloadState == "wrapped",
         ),
         ProtocolInsight(
             title = "Local capture state",
-            value = if (captureActive) "active" else "idle",
+            value = protocolState.captureState,
             description = "Host-side capture and runtime state feedback stay inside the local diagnostics model.",
-            ready = captureActive,
+            ready = protocolState.captureState == "active",
         ),
     )
 }
