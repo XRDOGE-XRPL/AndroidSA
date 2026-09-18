@@ -94,7 +94,7 @@ PY
 
 echo "[3/6] Running native host tests"
 cmake -S app/src/main/cpp -B build/native-tests -DANDROIDSA_ENABLE_NATIVE_TESTS=ON
-cmake --build build/native-tests --target client_state_test
+cmake --build build/native-tests --target client_state_test client_state_stress_test
 ctest --test-dir build/native-tests --output-on-failure
 
 echo "[4/6] Running JVM unit tests"
