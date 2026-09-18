@@ -67,6 +67,19 @@ private fun canonicalizeNativeCommand(sanitized: String, normalized: String): St
             val value = requireExactValueCommand(sanitized, normalized, "simulate", "Simulate")
             "simulate:$value"
         }
+        normalized.startsWith("stream:") -> {
+            val value = requireExactValueCommand(sanitized, normalized, "stream", "Stream")
+            val normalizedValue = value.lowercase()
+            when {
+                normalizedValue in setOf("start", "stop", "pause", "info") -> "stream:$normalizedValue"
+                normalizedValue.startsWith("source:") -> {
+                    val sourcePackage = normalizedValue.substringAfter(":", "").trim()
+                    require(sourcePackage.isNotEmpty()) { "Stream source package must not be blank" }
+                    "stream:source:$sourcePackage"
+                }
+                else -> throw IllegalArgumentException("Stream command value must be start, stop, pause, info, or source:<package>")
+            }
+        }
         else -> sanitized
     }
 }
@@ -114,6 +127,18 @@ internal fun requireValidNativeCommand(command: String): String {
             val simulateValue = requireExactValueCommand(sanitized, normalized, "simulate", "Simulate")
             require(simulateValue.lowercase() in setOf("rx", "tx")) {
                 "Simulate command value must be rx or tx"
+            }
+        }
+        normalized.startsWith("stream:") -> {
+            val streamValue = requireExactValueCommand(sanitized, normalized, "stream", "Stream")
+            val normalizedStreamValue = streamValue.lowercase()
+            when {
+                normalizedStreamValue in setOf("start", "stop", "pause", "info") -> Unit
+                normalizedStreamValue.startsWith("source:") -> {
+                    val sourcePackage = normalizedStreamValue.substringAfter(":", "").trim()
+                    require(sourcePackage.isNotEmpty()) { "Stream source package must not be blank" }
+                }
+                else -> throw IllegalArgumentException("Stream command value must be start, stop, pause, info, or source:<package>")
             }
         }
         else -> {

@@ -1,9 +1,9 @@
-# Systemanalyse: APK-Struktur com.rockstargames.gtasager
+# Systemanalyse: GTA SA Mobile Host-Paketfamilie
 
 ## App-Metadaten und Versionsparameter
 
 - App-Name: GTA: SA
-- Package-ID: `com.rockstargames.gtasager`
+- Host-Paketliste: `com.rockstargames.gtasager`, `com.rockstargames.gtasa`, `com.rockstargames.gtasa.de` (konfigurierbare Detection; keine feste APK-Asset- oder Binary-Integration im Repo)
 - Version: `2.11.277 (Build 3782367)`
 - API-Spezifikation: Ziel-SDK API `34` (Android 14.0), Minimal-SDK API `28` (Android 9.0)
 - Installationsquelle: Google Play Store

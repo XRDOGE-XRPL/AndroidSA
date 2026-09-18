@@ -1,10 +1,16 @@
 package com.xrdoge.xrpl.androidsa
 
+import android.app.Activity
 import android.content.Context
+import android.content.Intent
+import android.media.projection.MediaProjectionManager
+import android.net.Uri
 import android.os.Bundle
+import android.view.Surface
+import android.view.TextureView
 import androidx.activity.ComponentActivity
-import java.util.Locale
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -12,10 +18,12 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -32,8 +40,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.viewinterop.AndroidView
+import java.util.Locale
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -44,6 +55,17 @@ import kotlinx.coroutines.withContext
 
 private const val MaxUiRecentEvents = 12
 private const val ServerProfilesPreferencesKey = "androidsa_server_profiles"
+private const val GtaRuntimePackageOverrideKey = GtaPackageDetector.PACKAGE_OVERRIDE_KEY
+private val DefaultGtaRuntimePackages = GtaPackageDetector.defaultPackages
+
+private fun configuredGtaRuntimePackages(context: Context): List<String> =
+    GtaPackageDetector.configuredPackages(context)
+
+private fun detectGtaRuntime(context: Context): GtaRuntimeStatus =
+    GtaPackageDetector.detect(context)
+
+private fun launchGtaRuntime(context: Context): Boolean =
+    GtaPackageDetector.launch(context)
 
 private data class ServerProfile(
     val id: String,
@@ -60,6 +82,62 @@ private enum class ServerHealthStatus(val label: String) {
     SLOW("slow"),
     UNREACHABLE("unreachable"),
     UNKNOWN("unknown"),
+}
+
+internal enum class EventCategory(val label: String) {
+    ALL("all"),
+    STREAM("stream"),
+    TRANSPORT("transport"),
+    QUERY("query"),
+    PARSE("parse"),
+    ERROR("error"),
+    USER("user"),
+    HANDSHAKE("handshake"),
+    REPLY("reply"),
+    PAYLOAD("payload"),
+    WARNING("warning"),
+    DIAGNOSTIC("diagnostic"),
+}
+
+internal fun classifyEventCategory(event: String): EventCategory {
+    val normalized = event.lowercase()
+    return when {
+        normalized.contains("timeout") -> EventCategory.WARNING
+        normalized.contains("failed") || normalized.contains("error") ||
+            normalized.contains("rejected") || normalized.contains("disconnected") -> EventCategory.ERROR
+        normalized.contains("connected ping") || normalized.contains("connection request") ||
+            normalized.contains("open connection request") || normalized.contains("handshake") ||
+            normalized.contains("0x00") || normalized.contains("0x10") || normalized.contains("0x1c") -> EventCategory.HANDSHAKE
+        normalized.contains("open connection reply") || normalized.contains("connection accepted") ||
+            normalized.contains("new incoming connection") || normalized.contains("reply") ||
+            normalized.contains("0x1d") || normalized.contains("0x13") || normalized.contains("0x15") -> EventCategory.REPLY
+        normalized.contains("rpc wrapper") || normalized.contains("payload") ||
+            normalized.contains("0x7d") || normalized.contains("rpc packet") -> EventCategory.PAYLOAD
+        normalized.contains("stream") || normalized.contains("capture") || normalized.contains("projection") -> EventCategory.STREAM
+        normalized.contains("transport") || normalized.contains("udp") || normalized.contains("socket") -> EventCategory.TRANSPORT
+        normalized.contains("ping") || normalized.contains("query") || normalized.contains("probe") || normalized.contains("server list") -> EventCategory.QUERY
+        normalized.contains("parse") || normalized.contains("packet") -> EventCategory.PARSE
+        normalized.contains("user") || normalized.contains("manual") || normalized.contains("player") || normalized.contains("launch") -> EventCategory.USER
+        else -> EventCategory.DIAGNOSTIC
+    }
+}
+
+internal fun filterRecentEvents(events: List<String>, category: EventCategory): List<String> {
+    if (category == EventCategory.ALL) {
+        return events
+    }
+    val filtered = events.filter { classifyEventCategory(it) == category }
+    return filtered.ifEmpty { listOf("No ${category.label} events") }
+}
+
+internal fun summarizeEventCategories(events: List<String>): Map<EventCategory, Int> {
+    val totals = EventCategory.entries.associateWith { 0 }.toMutableMap()
+    totals[EventCategory.ALL] = events.size
+    events.forEach { event ->
+        val category = classifyEventCategory(event)
+        totals[category] = (totals[category] ?: 0) + 1
+    }
+    return totals
 }
 
 private enum class ProbeResult(val label: String, val description: String, val color: Color) {
@@ -277,12 +355,49 @@ private fun AndroidSAApp() {
     var isLoading by remember { mutableStateOf(false) }
     var commandJob by remember { mutableStateOf<Job?>(null) }
     var commandInFlight by remember { mutableStateOf<String?>(null) }
+    var eventFilter by remember { mutableStateOf(EventCategory.ALL) }
+    var streamCaptureState by remember { mutableStateOf(StreamCaptureState()) }
+    var streamSurfaceReady by remember { mutableStateOf(false) }
+    val gtaRuntimeStatus = remember(context) { detectGtaRuntime(context) }
     val commandMutex = remember { Mutex() }
     val scope = rememberCoroutineScope()
+    val capturePermissionLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult(),
+    ) { result ->
+        val resultCode = result.resultCode
+        val data = result.data
+        if (resultCode == Activity.RESULT_OK && data != null) {
+            streamCaptureState = StreamCaptureState(state = "starting", errorReason = null)
+            StreamCaptureService.startWithProjection(context, resultCode, data)
+            streamCaptureState = StreamCaptureService.currentState()
+        } else {
+            streamCaptureState = StreamCaptureState(
+                state = "error",
+                errorReason = "Screen capture permission was denied",
+            )
+        }
+    }
+    LaunchedEffect(streamCaptureState.state) {
+        if (streamCaptureState.state !in listOf("starting", "live", "paused", "need_permission")) {
+            return@LaunchedEffect
+        }
+        while (true) {
+            delay(1000)
+            val liveState = StreamCaptureService.currentState()
+            streamCaptureState = liveState
+            if (liveState.state !in listOf("starting", "live", "paused", "need_permission")) {
+                break
+            }
+        }
+    }
     LaunchedEffect(serverProfiles) {
         persistServerProfiles(context, serverProfiles)
     }
     val overview = snapshot.overview
+    val eventCounts = summarizeEventCategories(snapshot.recentEvents)
+    val filteredRecentEvents = remember(snapshot.recentEvents, eventFilter) {
+        filterRecentEvents(snapshot.recentEvents, eventFilter)
+    }
     val txRxRatio = when {
         overview.packetsSent == 0 && overview.packetsReceived == 0 -> "0.00"
         overview.packetsReceived == 0 -> "∞"
@@ -562,6 +677,140 @@ private fun AndroidSAApp() {
                     }
                 }
             }
+            SectionCard(title = "Naht B: GTA SA Mobile host") {
+                val streamState = streamCaptureState.state
+                val streamFps = "${streamCaptureState.captureFps} fps"
+                val captureLatencyMs = "${streamCaptureState.captureLatencyMs} ms"
+                val streamGeometry = "${streamCaptureState.frameWidth}x${streamCaptureState.frameHeight}"
+                val streamSurfaceState = if (streamSurfaceReady) "ready" else "waiting"
+
+                AndroidView(
+                    factory = { ctx ->
+                        TextureView(ctx).apply {
+                            surfaceTextureListener = object : TextureView.SurfaceTextureListener {
+                                override fun onSurfaceTextureAvailable(surface: android.graphics.SurfaceTexture, width: Int, height: Int) {
+                                    val captureSurface = Surface(surface)
+                                    StreamCaptureService.attachSurface(captureSurface)
+                                    streamSurfaceReady = true
+                                    if (streamCaptureState.state == "starting") {
+                                        streamCaptureState = StreamCaptureService.currentState()
+                                    }
+                                }
+
+                                override fun onSurfaceTextureSizeChanged(surface: android.graphics.SurfaceTexture, width: Int, height: Int) = Unit
+                                override fun onSurfaceTextureDestroyed(surface: android.graphics.SurfaceTexture): Boolean {
+                                    streamSurfaceReady = false
+                                    StreamCaptureService.clearSurface()
+                                    return true
+                                }
+
+                                override fun onSurfaceTextureUpdated(surface: android.graphics.SurfaceTexture) = Unit
+                            }
+                        }
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(180.dp),
+                )
+
+                Text("Host package: ${gtaRuntimeStatus.packageName}")
+                Text("Version: ${gtaRuntimeStatus.versionName}")
+                Text("State: ${gtaRuntimeStatus.state}")
+                Text("Launch intent: ${if (gtaRuntimeStatus.launchable) "available" else "unavailable"}")
+                Text(gtaRuntimeStatus.summary)
+                Text("Capture status: ${streamCaptureState.description()}")
+                Text("Capture geometry: $streamGeometry · Surface: $streamSurfaceState")
+                Text("Capture metrics: FPS ${streamCaptureState.captureFps}, latency ${streamCaptureState.captureLatencyMs} ms, dropped ${streamCaptureState.droppedFrames} frames")
+                if (streamCaptureState.errorReason != null) {
+                    Text("Stream error: ${streamCaptureState.errorReason}", color = Color(0xFFD32F2F))
+                }
+
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    ActionButton(
+                        label = if (gtaRuntimeStatus.installed) "Launch host" else "Install host",
+                        enabled = !isBusy,
+                    ) {
+                        val launched = launchGtaRuntime(context)
+                        if (launched) {
+                            dispatchPreset("stream:start")
+                        } else if (!gtaRuntimeStatus.installed) {
+                            applyLocalError("GTA SA Mobile runtime missing: install the GTA SA Mobile package first")
+                        } else {
+                            applyLocalError("GTA SA Mobile launch intent is unavailable on this device")
+                        }
+                    }
+                    ActionButton(
+                        label = if (streamCaptureState.state == "live") "Stream running" else if (streamCaptureState.state == "paused") "Resume stream" else "Stream start",
+                        enabled = !isBusy && streamSurfaceReady,
+                    ) {
+                        if (streamCaptureState.state == "live") {
+                            StreamCaptureService.requestStop(context)
+                            streamCaptureState = StreamCaptureState(state = "stopped")
+                            dispatchPreset("stream:stop")
+                        } else if (streamCaptureState.state == "paused") {
+                            streamCaptureState = StreamCaptureState(state = "starting", errorReason = null)
+                            StreamCaptureService.startWithProjection(context, Activity.RESULT_OK, Intent())
+                            dispatchPreset("stream:start")
+                        } else {
+                            val projectionManager = context.getSystemService(MediaProjectionManager::class.java)
+                            val captureIntent = projectionManager.createScreenCaptureIntent()
+                            streamCaptureState = StreamCaptureState(state = "need_permission", errorReason = null)
+                            capturePermissionLauncher.launch(captureIntent)
+                            dispatchPreset("stream:start")
+                        }
+                    }
+                    ActionButton(label = "Stream stop", enabled = !isBusy) {
+                        StreamCaptureService.requestStop(context)
+                        streamCaptureState = StreamCaptureState(state = "stopped")
+                        dispatchPreset("stream:stop")
+                    }
+                    ActionButton(label = "Stream pause", enabled = !isBusy) {
+                        StreamCaptureService.requestPause(context)
+                        streamCaptureState = StreamCaptureState(state = "paused")
+                        dispatchPreset("stream:pause")
+                    }
+                    ActionButton(label = "Stream info", enabled = !isBusy) {
+                        val infoState = StreamCaptureService.currentState()
+                        streamCaptureState = infoState
+                        dispatchPreset("stream:info")
+                    }
+                }
+
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("PACKAGE: ${gtaRuntimeStatus.packageName}")
+                    Text("VERSION: ${gtaRuntimeStatus.versionName}")
+                    Text("STREAM_STATE: ${streamState}")
+                    Text("FPS: $streamFps")
+                    Text("FRAME: ${streamCaptureState.frameWidth}x${streamCaptureState.frameHeight}")
+                    Text("DROPPED: ${streamCaptureState.droppedFrames}")
+                    Text("CAPTURE_MS: $captureLatencyMs")
+                }
+
+                var gtaPackageOverrideText by remember(context, gtaRuntimeStatus.packageName) {
+                    mutableStateOf(configuredGtaRuntimePackages(context).joinToString(","))
+                }
+                OutlinedTextField(
+                    value = gtaPackageOverrideText,
+                    onValueChange = { gtaPackageOverrideText = it },
+                    label = { Text("Package override") },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Button(onClick = {
+                    val packages = gtaPackageOverrideText.split(',')
+                        .map { it.trim() }
+                        .filter { it.isNotEmpty() }
+                        .distinct()
+                    val prefs = context.getSharedPreferences("androidsa_runtime", Context.MODE_PRIVATE)
+                    if (packages.isEmpty()) {
+                        prefs.edit().remove(GtaRuntimePackageOverrideKey).apply()
+                    } else {
+                        prefs.edit().putString(GtaRuntimePackageOverrideKey, packages.joinToString(",")).apply()
+                    }
+                    dispatchPreset("stream:source:${packages.firstOrNull() ?: gtaRuntimeStatus.packageName}")
+                }) {
+                    Text("Apply package override")
+                }
+            }
             SectionCard(title = "Guided controls") {
                 SectionCard(title = "Server browser") {
                     OutlinedTextField(
@@ -773,7 +1022,7 @@ private fun AndroidSAApp() {
                     supportingText = {
                         Text(
                             commandError
-                                ?: "Examples: ping, connect, connect:demo.sa-mp.local:7777, player:Guest, transport:udp, latency:42, diagnostics:ok, simulate:rx"
+                                ?: "Examples: ping, connect, connect:demo.sa-mp.local:7777, player:Guest, transport:udp, latency:42, diagnostics:ok, simulate:rx, stream:start, stream:stop, stream:info"
                         )
                     },
                     modifier = Modifier.fillMaxWidth(),
@@ -803,7 +1052,33 @@ private fun AndroidSAApp() {
                 }
             }
             SectionCard(title = "Recent events") {
-                snapshot.recentEvents.forEach { event ->
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    EventCategory.entries.forEach { category ->
+                        val isSelected = eventFilter == category
+                        Button(
+                            modifier = Modifier.weight(1f),
+                            enabled = true,
+                            colors = if (isSelected) {
+                                ButtonDefaults.buttonColors(
+                                    containerColor = Color(0xFF1976D2),
+                                    contentColor = Color(0xFFFFFFFF),
+                                )
+                            } else {
+                                ButtonDefaults.buttonColors(
+                                    containerColor = Color(0xFF2C2C2C),
+                                    contentColor = Color(0xFFEAEAEA),
+                                )
+                            },
+                            onClick = { eventFilter = category },
+                        ) {
+                            Text("${category.label} (${eventCounts[category] ?: 0})")
+                        }
+                    }
+                }
+                filteredRecentEvents.forEach { event ->
                     Text(text = "• $event", style = MaterialTheme.typography.bodyMedium)
                 }
             }

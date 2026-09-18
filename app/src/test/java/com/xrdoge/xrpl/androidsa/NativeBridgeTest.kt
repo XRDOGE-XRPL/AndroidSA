@@ -148,6 +148,13 @@ class NativeBridgeTest {
     }
 
     @Test
+    fun gtaPackageDetectorPrefersOfficialGtaSaPackage() {
+        assertEquals("com.rockstargames.gtasager", GtaPackageDetector.defaultPackages.first())
+        assertTrue(GtaPackageDetector.defaultPackages.contains("com.rockstargames.gtasa"))
+        assertTrue(GtaPackageDetector.defaultPackages.contains("com.rockstargames.gtasa.de"))
+    }
+
+    @Test
     fun requireValidNativeCommandTrimsInput() {
         assertEquals("ping", requireValidNativeCommand("  ping  "))
     }
@@ -200,6 +207,15 @@ class NativeBridgeTest {
     fun requireValidNativeCommandAcceptsTransportCommand() {
         assertEquals("transport:udp", requireValidNativeCommand("transport:udp"))
         assertEquals("transport:udp", requireValidNativeCommand("Transport:udp"))
+    }
+
+    @Test
+    fun requireValidNativeCommandAcceptsStreamLifecycleCommands() {
+        assertEquals("stream:start", requireValidNativeCommand("stream:start"))
+        assertEquals("stream:stop", requireValidNativeCommand("Stream:stop"))
+        assertEquals("stream:pause", requireValidNativeCommand("stream:pause"))
+        assertEquals("stream:info", requireValidNativeCommand("stream:info"))
+        assertEquals("stream:source:com.rockstargames.gtasa", requireValidNativeCommand("stream:source:com.rockstargames.gtasa"))
     }
 
     @Test
@@ -286,6 +302,63 @@ class NativeBridgeTest {
     @Test
     fun requireValidNativeCommandAcceptsFailCommand() {
         assertEquals("fail:timeout", requireValidNativeCommand("fail:timeout"))
+    }
+
+    @Test
+    fun requireValidNativeCommandAcceptsStreamCommands() {
+        assertEquals("stream:start", requireValidNativeCommand("stream:start"))
+        assertEquals("stream:stop", requireValidNativeCommand("Stream:stop"))
+        assertEquals("stream:info", requireValidNativeCommand("stream:info"))
+    }
+
+    @Test
+    fun requireValidNativeCommandRejectsUnsupportedStreamAction() {
+        assertThrows(IllegalArgumentException::class.java) {
+            requireValidNativeCommand("stream:resume")
+        }
+    }
+
+    @Test
+    fun classifyEventCategoryRecognizesKeySignals() {
+        assertEquals(EventCategory.HANDSHAKE, classifyEventCategory("RX RakNet connected ping"))
+        assertEquals(EventCategory.HANDSHAKE, classifyEventCategory("RakNet connection request queued"))
+        assertEquals(EventCategory.REPLY, classifyEventCategory("Open connection reply received"))
+        assertEquals(EventCategory.REPLY, classifyEventCategory("RakNet connection accepted by server"))
+        assertEquals(EventCategory.PAYLOAD, classifyEventCategory("RX Open:MP/SA:MP RPC wrapper"))
+        assertEquals(EventCategory.WARNING, classifyEventCategory("UDP timeout while waiting for reply"))
+        assertEquals(EventCategory.DIAGNOSTIC, classifyEventCategory("Session reset to initial state"))
+    }
+
+    @Test
+    fun filterRecentEventsFiltersExpectedCategory() {
+        val events = listOf(
+            "RX RakNet connected ping",
+            "RX Open:MP/SA:MP RPC wrapper",
+            "Timeout while waiting for reply",
+            "Session reset to initial state",
+        )
+
+        assertEquals(listOf("RX RakNet connected ping"), filterRecentEvents(events, EventCategory.HANDSHAKE))
+        assertEquals(listOf("Timeout while waiting for reply"), filterRecentEvents(events, EventCategory.WARNING))
+        assertEquals(listOf("Session reset to initial state"), filterRecentEvents(events, EventCategory.DIAGNOSTIC))
+    }
+
+    @Test
+    fun summarizeEventCategoriesCountsTotalAndCategoryBuckets() {
+        val events = listOf(
+            "RX RakNet connected ping",
+            "RX Open:MP/SA:MP RPC wrapper",
+            "Timeout while waiting for reply",
+            "Session reset to initial state",
+        )
+
+        val totals = summarizeEventCategories(events)
+
+        assertEquals(4, totals[EventCategory.ALL])
+        assertEquals(1, totals[EventCategory.HANDSHAKE])
+        assertEquals(1, totals[EventCategory.PAYLOAD])
+        assertEquals(1, totals[EventCategory.WARNING])
+        assertEquals(1, totals[EventCategory.DIAGNOSTIC])
     }
 
     @Test

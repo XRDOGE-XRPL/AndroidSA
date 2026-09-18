@@ -402,6 +402,8 @@ void ClientState::resetLocked() {
     packetsReceived_ = 0;
     connectionAttempts_ = 0;
     lastCommand_ = "startup";
+    streamState_ = "idle";
+    gtaRuntimeAvailable_ = true;
     eventLog_.clear();
 }
 
@@ -502,6 +504,54 @@ bool ClientState::dispatchCommand(const std::string& command) {
         diagnostics_ = "Status snapshot ready for " + playerName_ + " on " + serverAddress_ +
                        " (udp=" + std::string(udpRuntimeReady_ ? "ready" : "offline") + ")";
         eventMessage = "Status snapshot refreshed";
+    } else if (normalized == "stream" || startsWith(normalized, "stream:")) {
+        std::string streamAction;
+        if (!extractExactCommandValue(sanitized, normalized, "stream", &streamAction)) {
+            return false;
+        }
+        const auto action = lower(streamAction);
+        if (action == "start") {
+            if (!gtaRuntimeAvailable_) {
+                state_ = "error";
+                diagnostics_ = "GTA SA Mobile runtime missing; install com.rockstargames.gtasager, com.rockstargames.gtasa, or com.rockstargames.gtasa.de from the Play Store";
+                eventMessage = "Stream start blocked because the GTA SA Mobile runtime is not installed";
+            } else {
+                streamState_ = "running";
+                state_ = "streaming";
+                diagnostics_ = "Local GTA SA Mobile stream started; host runtime is live on-device";
+                eventMessage = "Local GTA SA Mobile stream started";
+            }
+        } else if (action == "stop") {
+            streamState_ = "stopped";
+            if (state_ == "streaming") {
+                state_ = "ready";
+            }
+            diagnostics_ = "Local GTA SA Mobile stream stopped";
+            eventMessage = "Local GTA SA Mobile stream stopped";
+        } else if (action == "pause") {
+            streamState_ = "paused";
+            if (state_ == "streaming") {
+                state_ = "ready";
+            }
+            diagnostics_ = "Local GTA SA Mobile stream paused";
+            eventMessage = "Local GTA SA Mobile stream paused";
+        } else if (action == "info") {
+            const std::string runtimeStatus = streamState_ == "running" ? "live" : "ready";
+            diagnostics_ = "GTA SA Mobile runtime: " + runtimeStatus + " (package " + gtaRuntimePackage_ + ")";
+            eventMessage = "Local stream status reported for GTA SA Mobile runtime";
+        } else if (startsWith(action, "source:")) {
+            const std::string sourcePackage = trim(action.substr(7));
+            if (sourcePackage.empty()) {
+                return false;
+            }
+            gtaRuntimePackage_ = sourcePackage;
+            gtaRuntimeAvailable_ = true;
+            streamState_ = "idle";
+            diagnostics_ = "Stream source package updated to " + gtaRuntimePackage_;
+            eventMessage = "Stream source package set to " + gtaRuntimePackage_;
+        } else {
+            return false;
+        }
     } else if (startsWith(normalized, "transport")) {
         std::string transport;
         if (!extractExactCommandValue(sanitized, normalized, "transport", &transport)) {

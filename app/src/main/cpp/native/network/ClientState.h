@@ -36,6 +36,9 @@ private:
     int packetsReceived_ = 0;
     int connectionAttempts_ = 0;
     std::string lastCommand_ = "startup";
+    std::string streamState_ = "idle";
+    bool gtaRuntimeAvailable_ = true;
+    std::string gtaRuntimePackage_ = "com.rockstargames.gtasager";
     std::vector<std::string> eventLog_ = {"Native runtime bootstrapped"};
     int udpSocketFd_ = -1;
     bool udpRuntimeReady_ = false;

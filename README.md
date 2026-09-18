@@ -1,6 +1,8 @@
 # AndroidSA
 
-AndroidSA ist ein Android-Prototyp für eine SA:MP-/Open:MP-orientierte Diagnose-, Probe- und Launcher-Schicht. Das Repository verbindet eine moderne Jetpack-Compose-Oberfläche mit einer Kotlin/JNI-Brücke und einem nativen C++20-Kern, um Verbindungsstatus, Serverprofile, Diagnosemeldungen, Laufzeitstatistiken, Event-Historie und echte UDP-Probe-Flows in einer klaren, testbaren Architektur zu modellieren.
+AndroidSA ist eine Android-Launcher- und Diagnose-Schicht für die lokal installierte GTA-SA-Mobile-Laufzeit auf demselben Gerät. Das Repository verbindet eine Jetpack-Compose-Oberfläche mit einer Kotlin/JNI-Brücke und einem nativen C++20-Kern, um Host-Detection, Launch, lokalen Stream-/Capture-Status, Diagnose, Serverprofile und echte UDP-Probe-Flows in einer klaren, testbaren Architektur zu modellieren.
+
+„AndroidSA startet und beobachtet die lokal installierte GTA-SA-Mobile-Laufzeit. Online kommt später in diese Laufzeit, nicht ins Compose-Dashboard.“
 
 ## Realistischer Projektumfang
 
@@ -20,6 +22,36 @@ Nicht im Scope sind:
 
 Open:MP bleibt ein Server-/Launcher- und PC-Ökosystem; AndroidSA modelliert die diagnostische Server-/Netzwerk-Seite, nicht ein vollständiges Spiel-Client-Backend. Der RakNet-/Open:MP-Teil beginnt bewusst mit der Erkennung und Klassifizierung von Packetsignalen, nicht mit Gameplay-Synchronisierung.
 
+## Implementierungs-Reihenfolge und Scope-Guardrails
+
+AndroidSA verfolgt eine klare Reihenfolge, damit die Projektgrenze nicht verwässert wird:
+
+1. Detect + Launch
+   - Paketliste konfigurierbar, default `com.rockstargames.gtasager`, `com.rockstargames.gtasa` und `com.rockstargames.gtasa.de`.
+   - Android manifest queries zeigen die Host-Apps sichtbar an, und der Launcher prüft Installationsstatus, Version und Start-Intent.
+   - Wenn die GTA-App fehlt, wird eine klare Meldung ausgegeben; kein Fake-Stream und keine Fake-Laufzeit.
+
+2. Lokaler Stream / Capture
+   - Der lokale Stream bleibt ein reales Capture-/Live-State-Feature des Host-Prozesses auf demselben Gerät.
+   - `stream:start`, `stream:stop`, `stream:pause`, `stream:info` und `stream:source:<package>` sind auf den bestehenden native Command-/State-Pfad gehängt.
+   - Solange die Laufzeit nicht als `STREAM_LIVE` bestätigt ist, gilt der SA-Kontext als unsicher.
+
+3. Event-Diagnostik und Dashboard verstärken
+   - Event-Kategorien, Historie, Filterung und Zustandsdarstellung werden auf Sichtbarkeit des Streams ausgerichtet.
+   - Die Oberfläche ist ein Diagnose- und Betriebsdashboard, keine Spieloberfläche.
+
+4. RakNet/Open:MP-Mapping nur als Observability
+   - Pakete, Wrapper und Signale werden nur als beobachtbare Protokollmuster interpretiert.
+   - Diese Interpretation dient der Analyse und Entdeckung, nicht als Startpunkt für einen echten Android-Client.
+
+5. Erst dann echte Spiel-/Multiplayer-Schritte
+   - Sobald der GTA-APK-Stream stabil läuft und die Laufzeit zuverlässig durchläuft, kann man SA:MP-/Open:MP-Interpretation und konkrete Spielzustands-/Netzwerk-Analyse starten.
+   - Gameplay-relevante Logik ist erst dann legitim, wenn der Stream-/Runtime-Input als gesichert gilt.
+
+6. Kein SA:MP-Client vor einem echten Stream-Fundament
+   - AndroidSA bleibt bewusst ein Diagnostics-/Probe-Layer.
+   - Es gibt keine Gameplay-Synchronisation, kein direkter GTA-SA-Client und keine SA:MP-Join-Logik vor einem realen APK-Stream.
+
 ## Dokumentations-Map
 
 Das Repository enthält die zentralen Markdown-Dateien:
@@ -33,7 +65,7 @@ Das Repository enthält die zentralen Markdown-Dateien:
 - `app/src/main/cpp/README.md` – Native-Layer-Dokumentation
 - `docs/ANDROID_DEVICE_CI_READY_CHECKLIST.md` – optionaler Geräte-/Emulator-Check
 - `docs/RELEASE_CHECKLIST.md` – finale Release-Gate-Checkliste
-- `docs/GTA_SA_MOBILE_SYSTEMANALYSE.md` – APK-/Dateisystem-/Runtime-Analyse der echten `com.rockstargames.gtasager`-App-Struktur
+- `docs/GTA_SA_MOBILE_SYSTEMANALYSE.md` – APK-/Dateisystem-/Runtime-Analyse der GTA-SA-Mobile-Host-Laufzeit und ihrer Paketfamilie
 
 ## Projektstatus
 
@@ -118,6 +150,11 @@ Die JVM- und native Validierung akzeptieren diese Befehle mit genauer Syntax:
 - `player:<name>`
 - `latency:<ms>`
 - `diagnostics:<text>`
+- `stream:start`
+- `stream:stop`
+- `stream:pause`
+- `stream:info`
+- `stream:source:<package>`
 - `simulate:rx`
 - `simulate:tx`
 - `fail:<reason>`

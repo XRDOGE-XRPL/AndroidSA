@@ -2,32 +2,30 @@
 
 Alle relevanten Änderungen dieses Projekts werden in dieser Datei dokumentiert.
 
-## [Documentation Expansion / Scope Clarification]
+## [Naht B / Host Runtime Scope]
 
 ### Added
 
-- vollständige, konsistente Projekt-Dokumentation über Scope, Architektur, Grenzen und reale Produktpositionierung
-- explizite Erläuterung, dass AndroidSA keine Gameplay-Client- oder Open:MP-Mobile-Portierung ist
-- zusätzliche Beschreibung der Paket-/Signal-Erkennung für RakNet und Open:MP/SA:MP als Diagnosefunktionalität
-- dokumentierte Trennung zwischen Loopback-Profilen, echten UDP-Remote-Probes und serverdiagnostischem UI-Workflow
+- Host-Detection für die lokal installierte GTA-SA-Mobile-Laufzeit mit konfigurierbarer Paketliste (`com.rockstargames.gtasager`, `com.rockstargames.gtasa`, `com.rockstargames.gtasa.de`)
+- Android-Manifest-Queries für die GTA-Host-Packages
+- Stream-Lifecycle-Commands `stream:start`, `stream:stop`, `stream:pause`, `stream:info` und `stream:source:<package>`
+- klare Naht-B-Scope-Hinweise: AndroidSA startet und beobachtet den lokalen GTA-SA-Mobile-Host, aber kein spielbarer Online-Client
 
 ### Changed
 
-- zentrale README-, Setup- und Modul-Dokumentation auf die reale Diagnose-/Launcher-Architektur ausgerichtet
-- Projektvorstellung und Markdown-Dokumente auf klare Begrenzung zwischen Netzwerk-Status und Spieler-Sync hin unterschieden
-- Release- und Gerätechecklisten auf den finalen nicht-emulatorgebundenen CI-Pfad angepasst
-- App-/Native-Doku ergänzt mit praktischen Regeln und Betriebsgrenzen für Commands, Logs und Events
+- README, Projektvorstellung und ToDo auf die reale Reihenfolge Detect/Launch → lokaler Stream → Diagnose/Query ausgerichtet
+- Event-Klassifikation erweitert um STREAM, TRANSPORT, QUERY, PARSE, ERROR und USER
+- Host-/Runtime-Status im UI als Schale statt als fertiger Client dargestellt
 
 ### Fixed
 
-- veraltete oder missverständliche Aussagen über „Android-Client“ oder vermeintliche Open:MP-Gameplay-Integration aus den Haupt-Dokumenten entfernt
-- doppelte oder unklare Produktbeschreibungen in Setup- und Release-Doku auf den realen Scope gekürzt
-- Dokumentationslücken in den Markdown-Dateien geschlossen, damit die Beschreibung mit dem tatsächlichen C++/Kotlin-Stack übereinstimmt
+- offizielle GTA-SA-Mobile-Paket-ID `com.rockstargames.gtasager` als Priorität im Host-/Launch-Flow ergänzt und mit den kompatiblen GTA-SA-Paketen `gtasa`/`gtasa.de` abgeglichen
+- Stream-Command-Validierung auf `pause` und `source:<package>` erweitert
+- Dokumentation auf die Naht-B-Grenze „Host runtime first, gameplay logic later“ synchronisiert
 
 ### Documentation
 
-- alle relevanten `.md`-Dateien im Repository wurden auf den gleichen, konsistenten Produktzustand ausgerichtet
-- README, Setup, Changelog, App-/Native-Doku und Projektvorstellung teilen nun dieselbe reale Produktinterpretation
+- Projektdoku und Changelog sprechen jetzt direkt die reale Naht-B-Abgrenzung und den Ablauf 1 Detect/Launch → 2 lokaler Stream → 3 Diagnose/Dashboard → 4 Query/Muster statt einer Online-Client-Positionierung an
 
 ## [Final / Prototype Completion]
 
